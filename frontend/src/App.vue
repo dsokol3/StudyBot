@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
-import { Send, Trash2, Loader2 } from 'lucide-vue-next'
+import { Send, Loader2 } from 'lucide-vue-next'
 import { chatApi } from '@/services/api'
 import type { Message, ChatResponse } from '@/types'
+import ChatLayout from '@/layouts/ChatLayout.vue'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import { marked } from 'marked'
 
 const conversationId = ref<string>('')
 const messages = ref<Message[]>([])
@@ -10,6 +15,28 @@ const inputMessage = ref('')
 const isLoading = ref(false)
 const error = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
+const chatLayoutRef = ref<InstanceType<typeof ChatLayout> | null>(null)
+
+const startNewChat = () => {
+  if (messages.value.length > 0 && chatLayoutRef.value) {
+    // Save current chat to history
+    chatLayoutRef.value.chatHistory.unshift({
+      id: conversationId.value,
+      title: messages.value[0]?.content.substring(0, 30) + '...' || 'New Chat',
+      timestamp: Date.now()
+    })
+  }
+  
+  conversationId.value = generateId()
+  messages.value = []
+  error.value = ''
+}
+
+const loadChat = (chatId: string) => {
+  // In a real app, you'd load messages from backend
+  // For now, just show it's selected
+  conversationId.value = chatId
+}
 
 onMounted(() => {
   conversationId.value = generateId()
@@ -85,100 +112,82 @@ const formatTime = (timestamp: number): string => {
     minute: '2-digit' 
   })
 }
+
+const renderMarkdown = (content: string): string => {
+  return marked(content, { 
+    breaks: true,
+    gfm: true 
+  }) as string
+}
 </script>
 
 <template>
-  <div class="flex flex-col h-screen bg-background">
-    <!-- Header -->
-    <header class="border-b bg-card px-6 py-4">
-      <div class="max-w-4xl mx-auto flex justify-between items-center">
-        <div>
-          <h1 class="text-2xl font-bold text-foreground">AI ChatBot</h1>
-          <p class="text-sm text-muted-foreground">Powered by Java & Vue</p>
+  <ChatLayout
+    ref="chatLayoutRef"
+    :can-clear-chat="messages.length > 0"
+    @new-chat="startNewChat"
+    @load-chat="loadChat"
+    @clear-chat="clearChat"
+  >
+    <!-- Messages -->
+    <div ref="messagesContainer" class="p-4 h-full">
+      <div v-if="messages.length === 0" class="flex items-center justify-center h-full">
+        <div class="text-center space-y-2">
+          <h2 class="text-xl font-semibold text-muted-foreground">Start a conversation</h2>
+          <p class="text-sm text-muted-foreground">Type a message below to begin</p>
         </div>
-        <button
-          @click="clearChat"
-          class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-10 px-4 py-2"
-          :disabled="messages.length === 0"
-        >
-          <Trash2 class="w-4 h-4 mr-2" />
-          Clear Chat
-        </button>
       </div>
-    </header>
 
-    <!-- Messages Area -->
-    <main ref="messagesContainer" class="flex-1 overflow-y-auto px-6 py-6">
-      <div class="max-w-4xl mx-auto space-y-4">
-        <div
-          v-if="messages.length === 0"
-          class="flex items-center justify-center h-full text-center"
-        >
-          <div class="space-y-2">
-            <h2 class="text-xl font-semibold text-muted-foreground">
-              Start a conversation
-            </h2>
-            <p class="text-sm text-muted-foreground">
-              Type a message below to begin chatting with the AI assistant
-            </p>
-          </div>
-        </div>
-
+      <div class="space-y-4 max-w-4xl mx-auto">
         <div
           v-for="message in messages"
           :key="message.id"
-          :class="[
-            'flex',
-            message.sender === 'user' ? 'justify-end' : 'justify-start',
-          ]"
+          :class="message.sender === 'user' ? 'ml-auto max-w-[80%]' : 'mr-auto max-w-[80%]'"
+          class="relative p-0.5 rounded-xl bg-linear-to-r from-[#3F5EFB] to-[#FC466B]"
         >
-          <div
-            :class="[
-              'max-w-[80%] rounded-lg px-4 py-2',
-              message.sender === 'user'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground',
-            ]"
-          >
-            <p class="text-sm">{{ message.content }}</p>
-            <span class="text-xs opacity-70 mt-1 block">
-              {{ formatTime(message.timestamp) }}
-            </span>
-          </div>
+          <Card class="relative bg-card">
+            <CardContent class="p-3">
+              <div 
+                class="text-sm message-content prose prose-sm max-w-none dark:prose-invert" 
+                v-html="renderMarkdown(message.content)"
+              />
+              <span class="text-xs text-muted-foreground mt-1 block">
+                {{ formatTime(message.timestamp) }}
+              </span>
+            </CardContent>
+          </Card>
         </div>
 
-        <div v-if="isLoading" class="flex justify-start">
-          <div class="bg-muted text-muted-foreground max-w-[80%] rounded-lg px-4 py-2">
-            <Loader2 class="w-4 h-4 animate-spin" />
-          </div>
+        <div v-if="isLoading" class="mr-auto max-w-[80%]">
+          <Card>
+            <CardContent class="p-3">
+              <Loader2 class="w-4 h-4 animate-spin" />
+            </CardContent>
+          </Card>
         </div>
 
-        <div v-if="error" class="bg-destructive/10 text-destructive rounded-lg px-4 py-2 text-sm">
-          {{ error }}
-        </div>
+        <Card v-if="error" class="border-destructive">
+          <CardContent class="p-3 text-sm text-destructive">
+            {{ error }}
+          </CardContent>
+        </Card>
       </div>
-    </main>
+    </div>
 
-    <!-- Input Area -->
-    <footer class="border-t bg-card px-6 py-4">
-      <form @submit.prevent="sendMessage" class="max-w-4xl mx-auto">
-        <div class="flex gap-2">
-          <input
+    <!-- Input Footer -->
+    <template #footer>
+      <div class="p-4">
+        <form @submit.prevent="sendMessage" class="flex gap-2 max-w-4xl mx-auto">
+          <Input
             v-model="inputMessage"
-            type="text"
             placeholder="Type your message..."
-            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="isLoading"
           />
-          <button
-            type="submit"
-            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-            :disabled="!inputMessage.trim() || isLoading"
-          >
+          <Button type="submit" :disabled="!inputMessage.trim() || isLoading">
             <Send class="w-4 h-4" />
-          </button>
-        </div>
-      </form>
-    </footer>
-  </div>
+          </Button>
+        </form>
+      </div>
+    </template>
+  </ChatLayout>
 </template>
