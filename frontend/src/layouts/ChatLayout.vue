@@ -86,8 +86,9 @@ defineExpose({
           </div>
           <div class="flex-1 text-center min-w-0">
             <h1 class="text-xl font-bold bg-linear-to-r from-[#3F5EFB] to-[#FC466B] bg-clip-text text-transparent">
-              AI ChatBot
+              AI ChatBot 
             </h1>
+            <p class="text-xs text-muted-foreground font-lato">Made by Devora Sokol</p>
             <p class="text-xs text-muted-foreground font-medium">Powered by Ollama</p>
           </div>
           <div class="flex items-center gap-2 min-w-0">
