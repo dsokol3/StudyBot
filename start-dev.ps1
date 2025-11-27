@@ -1,13 +1,16 @@
 # Start Backend
 Write-Host "Starting Java Backend..." -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; mvn spring-boot:run"
+$backendCommand = "Set-Location -Path '$PSScriptRoot'; mvn spring-boot:run"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCommand
 
 # Wait a moment for backend to initialize
 Start-Sleep -Seconds 3
 
 # Start Frontend
 Write-Host "Starting Vue Frontend..." -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\frontend'; npm run dev"
+$frontendPath = Join-Path $PSScriptRoot "frontend"
+$frontendCommand = "Set-Location -Path '$frontendPath'; npm run dev"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", $frontendCommand
 
 Write-Host "`nBoth servers are starting!" -ForegroundColor Cyan
 Write-Host "Backend: http://localhost:8080" -ForegroundColor Yellow

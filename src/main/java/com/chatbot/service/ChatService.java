@@ -1,26 +1,35 @@
 package com.chatbot.service;
 
 import com.chatbot.model.ChatMessage;
-import com.theokanning.openai.completion.chat.ChatCompletionRequest;
-import com.theokanning.openai.completion.chat.ChatCompletionResult;
-import com.theokanning.openai.service.OpenAiService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class ChatService {
     
-    @Value("${openai.api.key:}")
-    private String apiKey;
+    @Value("${ollama.api.url:http://localhost:11434}")
+    private String ollamaUrl;
     
-    private OpenAiService openAiService;
+    @Value("${ollama.api.key:}")
+    private String ollamaApiKey;
+    
+    @Value("${ollama.model:llama3}")
+    private String ollamaModel;
+    
+    private final RestTemplate restTemplate = new RestTemplate();
     
     // Store conversation history per conversation ID
-    private final Map<String, List<com.theokanning.openai.completion.chat.ChatMessage>> conversations = new ConcurrentHashMap<>();
+    private final Map<String, List<Map<String, String>>> conversations = new ConcurrentHashMap<>();
     
     public ChatMessage processMessage(String userMessage, String conversationId) {
         // Initialize conversation if needed
@@ -29,27 +38,28 @@ public class ChatService {
         }
         
         conversations.putIfAbsent(conversationId, new ArrayList<>());
-        List<com.theokanning.openai.completion.chat.ChatMessage> history = conversations.get(conversationId);
+        List<Map<String, String>> history = conversations.get(conversationId);
         
         // Add user message to history
-        com.theokanning.openai.completion.chat.ChatMessage userMsg = 
-            new com.theokanning.openai.completion.chat.ChatMessage("user", userMessage);
+        Map<String, String> userMsg = new HashMap<>();
+        userMsg.put("role", "user");
+        userMsg.put("content", userMessage);
         history.add(userMsg);
         
         String assistantResponse;
         
-        // Check if API key is configured
-        if (apiKey == null || apiKey.isEmpty() || apiKey.equals("your-api-key-here")) {
-            // Mock response for demo
-            assistantResponse = generateMockResponse(userMessage);
-        } else {
-            // Use OpenAI API
-            assistantResponse = callOpenAI(history);
+        try {
+            // Call Ollama API
+            assistantResponse = callOllama(history);
+        } catch (Exception e) {
+            assistantResponse = "Sorry, I encountered an error connecting to Ollama: " + e.getMessage() + 
+                              ". Make sure Ollama is running on " + ollamaUrl;
         }
         
         // Add assistant response to history
-        com.theokanning.openai.completion.chat.ChatMessage assistantMsg = 
-            new com.theokanning.openai.completion.chat.ChatMessage("assistant", assistantResponse);
+        Map<String, String> assistantMsg = new HashMap<>();
+        assistantMsg.put("role", "assistant");
+        assistantMsg.put("content", assistantResponse);
         history.add(assistantMsg);
         
         return new ChatMessage(
@@ -60,41 +70,54 @@ public class ChatService {
         );
     }
     
-    private String callOpenAI(List<com.theokanning.openai.completion.chat.ChatMessage> history) {
-        try {
-            if (openAiService == null) {
-                openAiService = new OpenAiService(apiKey, Duration.ofSeconds(30));
+    private String callOllama(List<Map<String, String>> history) {
+        String url = ollamaUrl + "/chat/completions";
+        
+        // Prepare request body
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", ollamaModel);
+        requestBody.put("messages", history);
+        requestBody.put("stream", false);
+        
+        // Set headers
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        if (ollamaApiKey != null && !ollamaApiKey.isEmpty()) {
+            headers.set("Authorization", "Bearer " + ollamaApiKey);
+        }
+        
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        
+        // Make API call using exchange method
+        ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+            url, 
+            HttpMethod.POST, 
+            entity, 
+            new ParameterizedTypeReference<Map<String, Object>>() {}
+        );
+        
+        Map<String, Object> responseBody = response.getBody();
+        if (responseBody != null) {
+            // Try OpenAI-compatible format first (for cloud API)
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> choices = (List<Map<String, Object>>) responseBody.get("choices");
+            if (choices != null && !choices.isEmpty()) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                if (message != null) {
+                    return (String) message.get("content");
+                }
             }
             
-            ChatCompletionRequest request = ChatCompletionRequest.builder()
-                .model("gpt-3.5-turbo")
-                .messages(history)
-                .maxTokens(500)
-                .temperature(0.7)
-                .build();
-            
-            ChatCompletionResult result = openAiService.createChatCompletion(request);
-            return result.getChoices().getFirst().getMessage().getContent();
-        } catch (Exception e) {
-            return "Sorry, I encountered an error: " + e.getMessage();
+            // Fallback to local Ollama format
+            @SuppressWarnings("unchecked")
+            Map<String, Object> message = (Map<String, Object>) responseBody.get("message");
+            if (message != null) {
+                return (String) message.get("content");
+            }
         }
-    }
-    
-    private String generateMockResponse(String userMessage) {
-        // Simple mock responses for demo
-        String msg = userMessage.toLowerCase();
         
-        if (msg.contains("hello") || msg.contains("hi")) {
-            return "Hello! I'm your AI chatbot. How can I help you today?";
-        } else if (msg.contains("how are you")) {
-            return "I'm doing great, thank you! I'm here to assist you with any questions.";
-        } else if (msg.contains("weather")) {
-            return "I don't have access to real-time weather data, but I can help with other questions!";
-        } else if (msg.contains("help")) {
-            return "I'm an AI chatbot. You can ask me questions about various topics. To use full AI capabilities, configure your OpenAI API key in application.properties.";
-        } else {
-            return "That's an interesting question! I'm currently running in demo mode. To get AI-powered responses, please configure your OpenAI API key.";
-        }
+        return "I received an empty response from Ollama.";
     }
     
     public void clearConversation(String conversationId) {
