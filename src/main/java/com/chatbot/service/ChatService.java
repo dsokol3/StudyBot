@@ -74,7 +74,7 @@ public class ChatService {
                 .build();
             
             ChatCompletionResult result = openAiService.createChatCompletion(request);
-            return result.getChoices().get(0).getMessage().getContent();
+            return result.getChoices().getFirst().getMessage().getContent();
         } catch (Exception e) {
             return "Sorry, I encountered an error: " + e.getMessage();
         }
