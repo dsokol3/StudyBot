@@ -71,7 +71,7 @@ public class ChatService {
     }
     
     private String callOllama(List<Map<String, String>> history) {
-        String url = ollamaUrl + "/chat/completions";
+        String url = ollamaUrl + "/api/chat";
         
         // Prepare request body
         Map<String, Object> requestBody = new HashMap<>();
@@ -98,18 +98,7 @@ public class ChatService {
         
         Map<String, Object> responseBody = response.getBody();
         if (responseBody != null) {
-            // Try OpenAI-compatible format first (for cloud API)
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> choices = (List<Map<String, Object>>) responseBody.get("choices");
-            if (choices != null && !choices.isEmpty()) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
-                if (message != null) {
-                    return (String) message.get("content");
-                }
-            }
-            
-            // Fallback to local Ollama format
+            // Parse Ollama's response format
             @SuppressWarnings("unchecked")
             Map<String, Object> message = (Map<String, Object>) responseBody.get("message");
             if (message != null) {

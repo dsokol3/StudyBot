@@ -10,14 +10,16 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.concurrent.CompletableFuture;
 
+// Controller to handle chat-related endpoints
 @RestController
 @RequestMapping("/api/chat")
-@CrossOrigin(origins = "*")
 public class ChatController {
     
+    // Service to handle chat logic
     @Autowired
     private ChatService chatService;
-    
+
+    // Handle incoming chat messages
     @PostMapping("/message")
     public CompletableFuture<ResponseEntity<ChatResponse>> sendMessage(@RequestBody ChatRequest request) {
         // Process message asynchronously
