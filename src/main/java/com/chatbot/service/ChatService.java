@@ -1,6 +1,10 @@
 package com.chatbot.service;
 
+import com.chatbot.entity.Conversation;
+import com.chatbot.entity.Message;
 import com.chatbot.model.ChatMessage;
+import com.chatbot.repository.ConversationRepository;
+import com.chatbot.repository.MessageRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -9,12 +13,14 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@Transactional
 public class ChatService {
     
     @Value("${ollama.api.url:http://localhost:11434}")
@@ -27,24 +33,57 @@ public class ChatService {
     private String ollamaModel;
     
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ConversationRepository conversationRepository;
+    private final MessageRepository messageRepository;
     
-    // Store conversation history per conversation ID
-    private final Map<String, List<Map<String, String>>> conversations = new ConcurrentHashMap<>();
+    public ChatService(ConversationRepository conversationRepository, MessageRepository messageRepository) {
+        this.conversationRepository = conversationRepository;
+        this.messageRepository = messageRepository;
+    }
     
-    public ChatMessage processMessage(String userMessage, String conversationId) {
+    public ChatMessage processMessage(String userMessage, String conversationIdParam) {
         // Initialize conversation if needed
-        if (conversationId == null || conversationId.isEmpty()) {
+        final String conversationId;
+        if (conversationIdParam == null || conversationIdParam.isEmpty()) {
             conversationId = UUID.randomUUID().toString();
+        } else {
+            conversationId = conversationIdParam;
         }
         
-        conversations.putIfAbsent(conversationId, new ArrayList<>());
-        List<Map<String, String>> history = conversations.get(conversationId);
+        // Find or create conversation
+        Conversation conversation = conversationRepository.findByConversationId(conversationId)
+                .orElseGet(() -> {
+                    Conversation newConv = new Conversation();
+                    newConv.setConversationId(conversationId);
+                    newConv.setCreatedAt(LocalDateTime.now());
+                    newConv.setUpdatedAt(LocalDateTime.now());
+                    newConv.setMessages(new ArrayList<>());
+                    return conversationRepository.save(newConv);
+                });
+        
+        // Load conversation history
+        List<Message> dbMessages = messageRepository.findByConversationConversationIdOrderByCreatedAtAsc(conversationId);
+        List<Map<String, String>> history = new ArrayList<>();
+        for (Message msg : dbMessages) {
+            Map<String, String> historyEntry = new HashMap<>();
+            historyEntry.put("role", msg.getRole());
+            historyEntry.put("content", msg.getContent());
+            history.add(historyEntry);
+        }
         
         // Add user message to history
         Map<String, String> userMsg = new HashMap<>();
         userMsg.put("role", "user");
         userMsg.put("content", userMessage);
         history.add(userMsg);
+        
+        // Save user message to database
+        Message userMessage_db = new Message();
+        userMessage_db.setConversation(conversation);
+        userMessage_db.setRole("user");
+        userMessage_db.setContent(userMessage);
+        userMessage_db.setCreatedAt(LocalDateTime.now());
+        messageRepository.save(userMessage_db);
         
         String assistantResponse;
         
@@ -56,11 +95,17 @@ public class ChatService {
                               ". Make sure Ollama is running on " + ollamaUrl;
         }
         
-        // Add assistant response to history
-        Map<String, String> assistantMsg = new HashMap<>();
-        assistantMsg.put("role", "assistant");
-        assistantMsg.put("content", assistantResponse);
-        history.add(assistantMsg);
+        // Save assistant response to database
+        Message assistantMessage_db = new Message();
+        assistantMessage_db.setConversation(conversation);
+        assistantMessage_db.setRole("assistant");
+        assistantMessage_db.setContent(assistantResponse);
+        assistantMessage_db.setCreatedAt(LocalDateTime.now());
+        messageRepository.save(assistantMessage_db);
+        
+        // Update conversation timestamp
+        conversation.setUpdatedAt(LocalDateTime.now());
+        conversationRepository.save(conversation);
         
         return new ChatMessage(
             UUID.randomUUID().toString(),
@@ -110,6 +155,12 @@ public class ChatService {
     }
     
     public void clearConversation(String conversationId) {
-        conversations.remove(conversationId);
+        // Delete all messages in the conversation
+        List<Message> messages = messageRepository.findByConversationConversationIdOrderByCreatedAtAsc(conversationId);
+        messageRepository.deleteAll(messages);
+        
+        // Delete the conversation
+        conversationRepository.findByConversationId(conversationId)
+                .ifPresent(conversationRepository::delete);
     }
 }
