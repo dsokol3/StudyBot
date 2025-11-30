@@ -47,9 +47,9 @@ const isActive = (path: string) => currentRoute.value === path
 </script>
 
 <template>
-  <div class="flex min-h-screen">
+  <div class="flex h-screen overflow-hidden">
     <!-- Sidebar -->
-    <aside class="w-64 border-r bg-sidebar shrink-0 hidden md:flex flex-col">
+    <aside class="w-64 border-r bg-sidebar shrink-0 hidden md:flex flex-col h-full">
       <!-- Header -->
       <div class="p-4 border-b">
         <div class="flex items-center gap-2">
@@ -134,7 +134,7 @@ const isActive = (path: string) => currentRoute.value === path
     </aside>
     
     <!-- Main Content -->
-    <div class="flex-1 flex flex-col min-w-0">
+    <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
       <!-- Header with back button for tool pages -->
       <header 
         v-if="route.path.startsWith('/tools/')" 
@@ -147,7 +147,7 @@ const isActive = (path: string) => currentRoute.value === path
       </header>
       
       <!-- Page Content -->
-      <main class="flex-1 overflow-auto">
+      <main class="flex-1 overflow-hidden">
         <slot />
       </main>
     </div>
