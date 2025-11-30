@@ -32,10 +32,13 @@ class ChatServiceTest {
     
     @Mock
     private MessageRepository messageRepository;
+    
+    @Mock
+    private RetrievalService retrievalService;
 
     @BeforeEach
     void setUp() {
-        chatService = new ChatService(conversationRepository, messageRepository);
+        chatService = new ChatService(conversationRepository, messageRepository, retrievalService);
         // Set local Ollama URL for testing (won't actually call API in unit tests)
         ReflectionTestUtils.setField(chatService, "ollamaUrl", "http://localhost:11434");
         ReflectionTestUtils.setField(chatService, "ollamaModel", "llama3");

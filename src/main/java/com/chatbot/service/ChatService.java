@@ -3,8 +3,13 @@ package com.chatbot.service;
 import com.chatbot.entity.Conversation;
 import com.chatbot.entity.Message;
 import com.chatbot.model.ChatMessage;
+import com.chatbot.model.ChatResponse;
 import com.chatbot.repository.ConversationRepository;
 import com.chatbot.repository.MessageRepository;
+import com.chatbot.service.RetrievalService.Citation;
+import com.chatbot.service.RetrievalService.RetrievedChunk;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -23,6 +28,8 @@ import java.util.*;
 @Transactional
 public class ChatService {
     
+    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
+    
     @Value("${ollama.api.url:http://localhost:11434}")
     private String ollamaUrl;
     
@@ -32,13 +39,134 @@ public class ChatService {
     @Value("${ollama.model:llama3}")
     private String ollamaModel;
     
+    @Value("${rag.enabled:true}")
+    private boolean ragEnabled;
+    
     private final RestTemplate restTemplate = new RestTemplate();
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
+    private final RetrievalService retrievalService;
     
-    public ChatService(ConversationRepository conversationRepository, MessageRepository messageRepository) {
+    public ChatService(
+            ConversationRepository conversationRepository, 
+            MessageRepository messageRepository,
+            RetrievalService retrievalService) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
+        this.retrievalService = retrievalService;
+    }
+    
+    public ChatResponse processMessageWithRag(String userMessage, String conversationIdParam) {
+        // Initialize conversation if needed
+        final String conversationId;
+        if (conversationIdParam == null || conversationIdParam.isEmpty()) {
+            conversationId = UUID.randomUUID().toString();
+        } else {
+            conversationId = conversationIdParam;
+        }
+        
+        // Find or create conversation
+        Conversation conversation = conversationRepository.findByConversationId(conversationId)
+                .orElseGet(() -> {
+                    Conversation newConv = new Conversation();
+                    newConv.setConversationId(conversationId);
+                    newConv.setCreatedAt(LocalDateTime.now());
+                    newConv.setUpdatedAt(LocalDateTime.now());
+                    newConv.setMessages(new ArrayList<>());
+                    return conversationRepository.save(newConv);
+                });
+        
+        // RAG: Retrieve relevant document chunks
+        List<RetrievedChunk> relevantChunks = new ArrayList<>();
+        List<Citation> citations = new ArrayList<>();
+        String ragContext = "";
+        
+        if (ragEnabled && retrievalService.hasDocuments(conversationId)) {
+            relevantChunks = retrievalService.findRelevantChunks(userMessage, conversationId);
+            if (!relevantChunks.isEmpty()) {
+                ragContext = retrievalService.buildContext(relevantChunks);
+                citations = retrievalService.buildCitations(relevantChunks);
+                log.info("RAG: Found {} relevant chunks for query", relevantChunks.size());
+            }
+        }
+        
+        // Load conversation history
+        List<Message> dbMessages = messageRepository.findByConversationConversationIdOrderByCreatedAtAsc(conversationId);
+        List<Map<String, String>> history = new ArrayList<>();
+        
+        // Add system message with RAG context if available
+        if (!ragContext.isEmpty()) {
+            Map<String, String> systemMsg = new HashMap<>();
+            systemMsg.put("role", "system");
+            systemMsg.put("content", buildSystemPrompt(ragContext));
+            history.add(systemMsg);
+        }
+        
+        for (Message msg : dbMessages) {
+            Map<String, String> historyEntry = new HashMap<>();
+            historyEntry.put("role", msg.getRole());
+            historyEntry.put("content", msg.getContent());
+            history.add(historyEntry);
+        }
+        
+        // Add user message to history
+        Map<String, String> userMsg = new HashMap<>();
+        userMsg.put("role", "user");
+        userMsg.put("content", userMessage);
+        history.add(userMsg);
+        
+        // Save user message to database
+        Message userMessage_db = new Message();
+        userMessage_db.setConversation(conversation);
+        userMessage_db.setRole("user");
+        userMessage_db.setContent(userMessage);
+        userMessage_db.setCreatedAt(LocalDateTime.now());
+        messageRepository.save(userMessage_db);
+        
+        String assistantResponse;
+        
+        try {
+            // Call Ollama API
+            assistantResponse = callOllama(history);
+        } catch (Exception e) {
+            assistantResponse = "Sorry, I encountered an error connecting to Ollama: " + e.getMessage() + 
+                              ". Make sure Ollama is running on " + ollamaUrl;
+        }
+        
+        // Save assistant response to database
+        Message assistantMessage_db = new Message();
+        assistantMessage_db.setConversation(conversation);
+        assistantMessage_db.setRole("assistant");
+        assistantMessage_db.setContent(assistantResponse);
+        assistantMessage_db.setCreatedAt(LocalDateTime.now());
+        messageRepository.save(assistantMessage_db);
+        
+        // Update conversation timestamp
+        conversation.setUpdatedAt(LocalDateTime.now());
+        conversationRepository.save(conversation);
+        
+        return new ChatResponse(
+            UUID.randomUUID().toString(),
+            assistantResponse,
+            "assistant",
+            System.currentTimeMillis(),
+            conversationId,
+            citations
+        );
+    }
+    
+    private String buildSystemPrompt(String ragContext) {
+        return """
+            You are a helpful AI assistant. Answer questions based on the provided context documents when relevant.
+            
+            %s
+            
+            INSTRUCTIONS:
+            - Use the provided documents to answer questions when relevant
+            - Cite sources using [Source 1], [Source 2], etc. when referencing specific documents
+            - If the documents don't contain relevant information, you can still answer using your general knowledge
+            - Be accurate and helpful
+            """.formatted(ragContext);
     }
     
     public ChatMessage processMessage(String userMessage, String conversationIdParam) {

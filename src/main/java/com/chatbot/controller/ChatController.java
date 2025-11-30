@@ -1,6 +1,5 @@
 package com.chatbot.controller;
 
-import com.chatbot.model.ChatMessage;
 import com.chatbot.model.ChatRequest;
 import com.chatbot.model.ChatResponse;
 import com.chatbot.service.ChatService;
@@ -19,23 +18,17 @@ public class ChatController {
     @Autowired
     private ChatService chatService;
 
-    // Handle incoming chat messages
+    // Handle incoming chat messages with RAG support
     @PostMapping("/message")
     public CompletableFuture<ResponseEntity<ChatResponse>> sendMessage(@RequestBody ChatRequest request) {
-        // Process message asynchronously
+        // Process message asynchronously with RAG
         return CompletableFuture.supplyAsync(() -> {
-            ChatMessage response = chatService.processMessage(
+            ChatResponse response = chatService.processMessageWithRag(
                 request.getMessage(), 
                 request.getConversationId()
             );
             
-            ChatResponse chatResponse = new ChatResponse(
-                response.getContent(),
-                request.getConversationId(),
-                response.getTimestamp()
-            );
-            
-            return ResponseEntity.ok(chatResponse);
+            return ResponseEntity.ok(response);
         });
     }
     

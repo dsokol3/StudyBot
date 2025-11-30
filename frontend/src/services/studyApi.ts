@@ -1,0 +1,163 @@
+import axios from 'axios'
+import type {
+  UploadedNote,
+  SummaryResult,
+  FlashcardsResult,
+  QuestionsResult,
+  EssayPromptsResult,
+  ExplanationsResult,
+  DiagramsResult,
+  StudyPlanResult
+} from '@/types/study'
+
+const api = axios.create({
+  baseURL: '/api/study',
+  timeout: 120000, // 2 minute timeout for AI generation
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+// Rate limiting helper
+let lastRequestTime = 0
+const MIN_REQUEST_INTERVAL = 1000 // 1 second between requests
+
+async function throttledRequest<T>(requestFn: () => Promise<T>): Promise<T> {
+  const now = Date.now()
+  const timeSinceLastRequest = now - lastRequestTime
+  
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    await new Promise(resolve => 
+      setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest)
+    )
+  }
+  
+  lastRequestTime = Date.now()
+  return requestFn()
+}
+
+export const studyApi = {
+  // File Upload
+  async uploadNotes(file: File): Promise<UploadedNote> {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await api.post<UploadedNote>('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    
+    return response.data
+  },
+  
+  // Summary Generation
+  async generateSummary(content: string): Promise<SummaryResult> {
+    return throttledRequest(async () => {
+      const response = await api.post<SummaryResult>('/generate/summary', {
+        content
+      })
+      return { ...response.data, type: 'summary' as const }
+    })
+  },
+  
+  // Flashcards Generation
+  async generateFlashcards(content: string, count?: number): Promise<FlashcardsResult> {
+    return throttledRequest(async () => {
+      const response = await api.post<FlashcardsResult>('/generate/flashcards', {
+        content,
+        count: count || 10
+      })
+      return { ...response.data, type: 'flashcards' as const }
+    })
+  },
+  
+  // Questions Generation
+  async generateQuestions(content: string, count?: number): Promise<QuestionsResult> {
+    return throttledRequest(async () => {
+      const response = await api.post<QuestionsResult>('/generate/questions', {
+        content,
+        count: count || 5
+      })
+      return { ...response.data, type: 'questions' as const }
+    })
+  },
+  
+  // Essay Prompts Generation
+  async generateEssayPrompts(content: string, count?: number): Promise<EssayPromptsResult> {
+    return throttledRequest(async () => {
+      const response = await api.post<EssayPromptsResult>('/generate/essay-prompts', {
+        content,
+        count: count || 3
+      })
+      return { ...response.data, type: 'essay-prompts' as const }
+    })
+  },
+  
+  // Text Explanation
+  async explainText(content: string): Promise<ExplanationsResult> {
+    return throttledRequest(async () => {
+      const response = await api.post<ExplanationsResult>('/generate/explain', {
+        content
+      })
+      return { ...response.data, type: 'explanations' as const }
+    })
+  },
+  
+  // Diagram Generation
+  async generateDiagram(content: string): Promise<DiagramsResult> {
+    return throttledRequest(async () => {
+      const response = await api.post<DiagramsResult>('/generate/diagram', {
+        content
+      })
+      return { ...response.data, type: 'diagrams' as const }
+    })
+  },
+  
+  // Study Plan Generation
+  async generateStudyPlan(
+    examDate: string, 
+    content: string,
+    hoursPerDay?: number
+  ): Promise<StudyPlanResult> {
+    return throttledRequest(async () => {
+      const response = await api.post<StudyPlanResult>('/generate/study-plan', {
+        content,
+        examDate,
+        hoursPerDay: hoursPerDay || 2
+      })
+      return { ...response.data, type: 'study-plan' as const }
+    })
+  },
+  
+  // Export functionality
+  async exportResult(
+    resultType: string, 
+    result: unknown, 
+    format: 'pdf' | 'json' | 'markdown' | 'anki'
+  ): Promise<Blob> {
+    const response = await api.post('/export', {
+      resultType,
+      result,
+      format
+    }, {
+      responseType: 'blob'
+    })
+    
+    return response.data
+  }
+}
+
+// Error interceptor
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 429) {
+      // Rate limited
+      console.warn('Rate limited. Please wait before making another request.')
+    }
+    return Promise.reject(error)
+  }
+)
+
+export default studyApi

@@ -1,14 +1,12 @@
 package com.chatbot.controller;
 
-import com.chatbot.model.ChatRequest;
-import com.chatbot.model.ChatResponse;
 import com.chatbot.service.ChatService;
 import com.chatbot.model.ChatMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -23,7 +21,7 @@ class ChatControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private ChatService chatService;
 
     private ChatMessage mockResponse;
