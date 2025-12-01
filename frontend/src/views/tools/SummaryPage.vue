@@ -13,6 +13,7 @@ import type { SummaryResult } from '@/types/study'
 
 const { 
   isLoading, 
+  isLoadingContent,
   error, 
   result, 
   selectedContent, 
@@ -24,7 +25,8 @@ const useFullNotes = ref(true)
 const copied = ref(false)
 
 const handleGenerate = async () => {
-  const content = useFullNotes.value ? notesContent.value : selectedContent.value
+  // When using full notes, let generate() fetch from backend if notesContent is empty
+  const content = useFullNotes.value ? undefined : selectedContent.value
   await generate(content, { force: true })
 }
 
@@ -102,7 +104,16 @@ const downloadAsMarkdown = () => {
             />
             
             <div v-else class="p-4 rounded-lg bg-muted/50 text-sm text-muted-foreground">
-              Will use content from all {{ notesContent.split('\n').length }} lines of uploaded notes
+              <template v-if="isLoadingContent">
+                <Loader2 class="w-4 h-4 inline animate-spin mr-2" />
+                Loading document content...
+              </template>
+              <template v-else-if="notesContent && notesContent.trim()">
+                Will use content from {{ notesContent.split('\n').length }} lines of uploaded notes
+              </template>
+              <template v-else>
+                No documents uploaded yet. Upload files on the Upload page or paste content below.
+              </template>
             </div>
             
             <!-- Error Alert -->

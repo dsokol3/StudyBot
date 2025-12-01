@@ -194,6 +194,53 @@ public class DocumentService {
     }
     
     /**
+     * Get the full text content of a document by combining all its chunks.
+     */
+    @Transactional(readOnly = true)
+    public Optional<String> getDocumentContent(UUID documentId) {
+        try {
+            return documentRepository.findById(documentId)
+                .filter(doc -> doc.getStatus() == DocumentStatus.COMPLETED)
+                .map(doc -> {
+                    List<String> contents = chunkRepository.findContentByDocumentIdOrderByChunkOrderAsc(documentId);
+                    log.info("Found {} chunks for document {}", contents.size(), documentId);
+                    return String.join("\n\n", contents).trim();
+                });
+        } catch (Exception e) {
+            log.error("Error getting document content for {}: {}", documentId, e.getMessage(), e);
+            return Optional.empty();
+        }
+    }
+    
+    /**
+     * Get all document contents for a conversation.
+     */
+    @Transactional(readOnly = true)
+    public String getAllDocumentContents(String conversationId) {
+        try {
+            List<Document> documents = getDocumentsByConversation(conversationId);
+            log.info("Found {} documents for conversation {}", documents.size(), conversationId);
+            StringBuilder content = new StringBuilder();
+            
+            for (Document doc : documents) {
+                if (doc.getStatus() == DocumentStatus.COMPLETED) {
+                    List<String> chunkContents = chunkRepository.findContentByDocumentIdOrderByChunkOrderAsc(doc.getId());
+                    log.info("Document {} has {} chunks", doc.getId(), chunkContents.size());
+                    for (String chunkContent : chunkContents) {
+                        content.append(chunkContent).append("\n\n");
+                    }
+                    content.append("---\n\n");
+                }
+            }
+            
+            return content.toString().trim();
+        } catch (Exception e) {
+            log.error("Error getting document contents for conversation {}: {}", conversationId, e.getMessage(), e);
+            return "";
+        }
+    }
+
+    /**
      * Delete a document and its chunks.
      */
     @Transactional

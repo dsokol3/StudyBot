@@ -1,6 +1,7 @@
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useGenerationStore } from '@/stores/generation'
 import { useNotesStore } from '@/stores/notes'
+import { studyApi } from '@/services/studyApi'
 import type { ToolType, GenerationResult } from '@/types/study'
 
 export function useStudyTool<T extends GenerationResult>(toolType: ToolType) {
@@ -8,13 +9,44 @@ export function useStudyTool<T extends GenerationResult>(toolType: ToolType) {
   const notesStore = useNotesStore()
   
   const isLoading = ref(false)
+  const isLoadingContent = ref(true)
   const error = ref<string | null>(null)
   const result = ref<T | null>(null)
   const selectedContent = ref('')
+  const fetchedContent = ref('')
   
-  // Get combined content from all notes
+  // Get combined content from all notes (local cache)
   const notesContent = computed(() => {
-    return notesStore.notes.map(note => note.content).join('\n\n---\n\n')
+    // If we have fetched content from backend, prefer that
+    if (fetchedContent.value?.trim()) {
+      return fetchedContent.value
+    }
+    
+    // Fallback to local content
+    return notesStore.notes
+      .map(note => note.content || '')
+      .filter(c => c.trim())
+      .join('\n\n---\n\n')
+  })
+  
+  // Fetch content from backend
+  async function fetchContentFromBackend(): Promise<string> {
+    try {
+      isLoadingContent.value = true
+      const content = await studyApi.getAllDocumentContents('default')
+      fetchedContent.value = content
+      return content
+    } catch (err) {
+      console.error('Failed to fetch content from backend:', err)
+      return ''
+    } finally {
+      isLoadingContent.value = false
+    }
+  }
+  
+  // Auto-fetch content on composable mount
+  onMounted(() => {
+    fetchContentFromBackend()
   })
   
   // Check if there's cached history for this tool
@@ -35,10 +67,20 @@ export function useStudyTool<T extends GenerationResult>(toolType: ToolType) {
     error.value = null
     
     try {
-      const inputContent = content || selectedContent.value || notesContent.value
+      let inputContent = content || selectedContent.value
       
-      if (!inputContent.trim()) {
-        error.value = 'Please provide some content to generate from'
+      // If no content provided, fetch from backend
+      if (!inputContent?.trim()) {
+        inputContent = await fetchContentFromBackend()
+      }
+      
+      // Fallback to local notes content
+      if (!inputContent?.trim()) {
+        inputContent = notesContent.value
+      }
+      
+      if (!inputContent?.trim()) {
+        error.value = 'Please upload some documents first, or paste content to generate from'
         return null
       }
       
@@ -68,12 +110,14 @@ export function useStudyTool<T extends GenerationResult>(toolType: ToolType) {
   
   return {
     isLoading,
+    isLoadingContent,
     error,
     result,
     selectedContent,
     notesContent,
     previousResult,
     generate,
+    fetchContentFromBackend,
     clearError,
     clearResult
   }

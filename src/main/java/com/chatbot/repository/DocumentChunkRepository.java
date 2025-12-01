@@ -12,7 +12,12 @@ import java.util.UUID;
 @Repository
 public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, UUID> {
     
-    List<DocumentChunk> findByDocumentIdOrderByChunkOrderAsc(UUID documentId);
+    /**
+     * Find chunk content only (without embedding) for a document.
+     * This avoids issues with pgvector type conversion.
+     */
+    @Query("SELECT c.content FROM DocumentChunk c WHERE c.document.id = :documentId ORDER BY c.chunkOrder ASC")
+    List<String> findContentByDocumentIdOrderByChunkOrderAsc(@Param("documentId") UUID documentId);
     
     void deleteByDocumentId(UUID documentId);
     

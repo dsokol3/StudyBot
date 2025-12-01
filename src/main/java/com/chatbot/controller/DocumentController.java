@@ -92,6 +92,25 @@ public class DocumentController {
     }
     
     /**
+     * Get the full text content of a document.
+     */
+    @GetMapping("/{documentId}/content")
+    public ResponseEntity<?> getDocumentContent(@PathVariable UUID documentId) {
+        return documentService.getDocumentContent(documentId)
+            .map(content -> ResponseEntity.ok(Map.of("content", content)))
+            .orElse(ResponseEntity.notFound().build());
+    }
+    
+    /**
+     * Get all document contents for a conversation (for study tools).
+     */
+    @GetMapping("/conversation/{conversationId}/content")
+    public ResponseEntity<?> getAllDocumentContents(@PathVariable String conversationId) {
+        String content = documentService.getAllDocumentContents(conversationId);
+        return ResponseEntity.ok(Map.of("content", content));
+    }
+
+    /**
      * Delete a document.
      */
     @DeleteMapping("/{documentId}")

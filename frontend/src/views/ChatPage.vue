@@ -57,7 +57,8 @@ const loadChat = (chatId: string) => {
 }
 
 onMounted(() => {
-  conversationId.value = generateId()
+  // Use 'default' to access documents uploaded from the Upload page
+  conversationId.value = 'default'
 })
 
 const generateId = (): string => {

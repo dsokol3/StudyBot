@@ -16,6 +16,39 @@ export const useNotesStore = defineStore('notes', () => {
     notes.value.map(n => n.content || '').join('\n\n---\n\n')
   )
   
+  // Poll for document processing status
+  async function pollDocumentStatus(noteId: string, maxAttempts = 30): Promise<boolean> {
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const status = await studyApi.getDocumentStatus(noteId)
+        
+        if (status.status === 'COMPLETED') {
+          // Fetch the content
+          const content = await studyApi.getDocumentContent(noteId)
+          
+          // Update the note with content
+          const noteIndex = notes.value.findIndex(n => n.id === noteId)
+          const note = notes.value[noteIndex]
+          if (noteIndex !== -1 && note) {
+            note.content = content
+            note.status = 'COMPLETED'
+            persistNotes()
+          }
+          return true
+        } else if (status.status === 'FAILED') {
+          return false
+        }
+        
+        // Wait 1 second before next poll
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      } catch {
+        // Continue polling on error
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+    }
+    return false
+  }
+  
   // Actions
   async function uploadFiles(files: File[]) {
     const results: Array<{ success: boolean; note?: UploadedNote; error?: string }> = []
@@ -34,17 +67,40 @@ export const useNotesStore = defineStore('notes', () => {
       try {
         const note = await studyApi.uploadNotes(file)
         
-        // Success - add to notes
+        // Add to notes immediately
         notes.value.push(note)
+        
+        // Update queue to processing
         uploadQueue.value.set(uploadId, {
           id: uploadId,
           filename: file.name,
-          progress: 100,
-          status: 'complete'
+          progress: 50,
+          status: 'processing'
         })
         
+        // Poll for completion and fetch content
+        const success = await pollDocumentStatus(note.id)
+        
+        if (success) {
+          uploadQueue.value.set(uploadId, {
+            id: uploadId,
+            filename: file.name,
+            progress: 100,
+            status: 'complete'
+          })
+          results.push({ success: true, note })
+        } else {
+          uploadQueue.value.set(uploadId, {
+            id: uploadId,
+            filename: file.name,
+            progress: 0,
+            status: 'error',
+            error: 'Processing failed'
+          })
+          results.push({ success: false, error: 'Processing failed' })
+        }
+        
         persistNotes()
-        results.push({ success: true, note })
         
         // Clear from queue after delay
         setTimeout(() => {

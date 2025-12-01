@@ -5,11 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.*;
 
 @Service
@@ -23,8 +25,16 @@ public class StudyService {
     @Value("${ollama.model:llama3}")
     private String ollamaModel;
     
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    
+    public StudyService(RestTemplateBuilder restTemplateBuilder) {
+        // Configure RestTemplate with longer timeouts for AI generation
+        this.restTemplate = restTemplateBuilder
+            .connectTimeout(Duration.ofSeconds(10))
+            .readTimeout(Duration.ofMinutes(3)) // AI generation can take a while
+            .build();
+    }
     
     public Map<String, Object> generateSummary(String content) {
         String prompt = """
@@ -203,11 +213,26 @@ public class StudyService {
         try {
             String url = ollamaUrl + "/api/generate";
             
+            // Truncate content if too large to prevent very long generation times
+            String truncatedPrompt = prompt;
+            if (prompt.length() > 8000) {
+                log.warn("Prompt too long ({} chars), truncating to 8000", prompt.length());
+                truncatedPrompt = prompt.substring(0, 8000) + "\n\n[Content truncated for processing...]";
+            }
+            
+            log.info("Calling Ollama model {} with prompt of {} chars", ollamaModel, truncatedPrompt.length());
+            long startTime = System.currentTimeMillis();
+            
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", ollamaModel);
-            requestBody.put("prompt", prompt);
+            requestBody.put("prompt", truncatedPrompt);
             requestBody.put("stream", false);
             requestBody.put("format", "json");
+            // Add options to speed up generation
+            Map<String, Object> options = new HashMap<>();
+            options.put("num_predict", 2048); // Limit response length
+            options.put("temperature", 0.7);
+            requestBody.put("options", options);
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -221,15 +246,20 @@ public class StudyService {
                 new ParameterizedTypeReference<Map<String, Object>>() {}
             );
             
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.info("Ollama response received in {} ms", elapsed);
+            
             Map<String, Object> responseBody = response.getBody();
             if (responseBody != null && responseBody.containsKey("response")) {
                 String jsonResponse = (String) responseBody.get("response");
+                log.debug("Ollama JSON response: {}", jsonResponse.substring(0, Math.min(200, jsonResponse.length())));
                 return objectMapper.readValue(jsonResponse, new TypeReference<Map<String, Object>>() {});
             }
             
+            log.warn("Ollama response did not contain 'response' field");
             return fallback;
         } catch (Exception e) {
-            log.error("Error calling Ollama for study generation: {}", e.getMessage());
+            log.error("Error calling Ollama for study generation: {}", e.getMessage(), e);
             return fallback;
         }
     }

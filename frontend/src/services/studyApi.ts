@@ -57,7 +57,7 @@ export const studyApi = {
     return {
       id: data.id,
       filename: data.filename || file.name,
-      content: data.content || '',
+      content: '', // Content will be fetched separately after processing
       contentType: data.contentType,
       fileSizeBytes: data.fileSizeBytes,
       status: data.status,
@@ -69,6 +69,24 @@ export const studyApi = {
       size: data.fileSizeBytes || file.size,
       type: fileExtension as 'pdf' | 'txt' | 'md' | 'docx'
     }
+  },
+  
+  // Get document status
+  async getDocumentStatus(documentId: string): Promise<{ status: string; chunkCount: number }> {
+    const response = await axios.get(`/api/documents/${documentId}/status`)
+    return response.data
+  },
+  
+  // Get document content after processing
+  async getDocumentContent(documentId: string): Promise<string> {
+    const response = await axios.get(`/api/documents/${documentId}/content`)
+    return response.data.content || ''
+  },
+  
+  // Get all document contents for study tools
+  async getAllDocumentContents(conversationId: string = 'default'): Promise<string> {
+    const response = await axios.get(`/api/documents/conversation/${conversationId}/content`)
+    return response.data.content || ''
   },
   
   // Summary Generation
