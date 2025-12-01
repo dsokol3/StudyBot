@@ -114,7 +114,7 @@ const formatFileSize = (bytes: number): string => {
 
 <template>
   <StudyLayout>
-    <div class="min-h-full flex items-center justify-center p-6 bg-gradient-to-br from-background via-background to-muted/20">
+    <div class="min-h-full flex items-center justify-center p-6 bg-white/60 backdrop-blur-sm">
       <div class="w-full max-w-2xl space-y-6">
         <!-- Header -->
         <div class="text-center space-y-2">

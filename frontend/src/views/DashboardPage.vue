@@ -100,7 +100,7 @@ const hasHistoryForTool = (toolId: string) => {
 
 <template>
   <StudyLayout>
-    <div class="min-h-full p-6 bg-gradient-to-br from-background via-background to-muted/20">
+    <div class="min-h-full p-6 bg-white/60 backdrop-blur-sm">
       <div class="max-w-6xl mx-auto space-y-8">
         <!-- Header -->
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

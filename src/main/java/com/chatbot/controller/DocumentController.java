@@ -19,7 +19,6 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/documents")
-@CrossOrigin(origins = "*")
 public class DocumentController {
     
     private static final Logger log = LoggerFactory.getLogger(DocumentController.class);

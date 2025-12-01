@@ -152,8 +152,8 @@ const handleUploadComplete = () => {
   <StudyLayout>
     <div class="flex h-full overflow-hidden">
       <!-- Chat History Sidebar (Right side, inside main content) -->
-      <aside class="w-64 border-r bg-background/50 shrink-0 hidden lg:flex flex-col h-full overflow-hidden">
-        <div class="p-4 border-b bg-background/30">
+      <aside class="w-64 border-r bg-white/70 backdrop-blur-md shrink-0 hidden lg:flex flex-col h-full overflow-hidden">
+        <div class="p-4 border-b bg-white/50">
           <h2 class="font-semibold text-sm flex items-center gap-2">
             <MessageSquare class="w-4 h-4" />
             Chat History
@@ -209,9 +209,9 @@ const handleUploadComplete = () => {
       </aside>
       
       <!-- Main Chat Area -->
-      <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-background/40">
+      <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white/60 backdrop-blur-sm">
         <!-- Chat Header -->
-        <header class="border-b bg-background/60 backdrop-blur-sm px-4 py-3 flex items-center shrink-0">
+        <header class="border-b bg-white/70 backdrop-blur-sm px-4 py-3 flex items-center shrink-0">
           <div class="flex-1 text-center min-w-0">
             <h1 class="text-xl font-bold bg-gradient-to-r from-[#3F5EFB] to-[#FC466B] bg-clip-text text-transparent">
               AI ChatBot 
@@ -298,7 +298,7 @@ const handleUploadComplete = () => {
         </div>
 
         <!-- Input Footer -->
-        <footer class="border-t bg-background/60 backdrop-blur-sm p-4 shrink-0">
+        <footer class="border-t bg-white/70 backdrop-blur-sm p-4 shrink-0">
           <form @submit.prevent="sendMessage" class="flex gap-2 max-w-4xl mx-auto">
             <Input
               v-model="inputMessage"

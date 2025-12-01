@@ -38,17 +38,37 @@ async function throttledRequest<T>(requestFn: () => Promise<T>): Promise<T> {
 
 export const studyApi = {
   // File Upload
-  async uploadNotes(file: File): Promise<UploadedNote> {
+  async uploadNotes(file: File, conversationId?: string): Promise<UploadedNote> {
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('conversationId', conversationId || 'default')
     
-    const response = await api.post<UploadedNote>('/upload', formData, {
+    const response = await axios.post('/api/documents/upload', formData, {
+      timeout: 120000,
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     })
     
-    return response.data
+    // Map backend response to frontend UploadedNote type
+    const data = response.data
+    const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'txt'
+    
+    return {
+      id: data.id,
+      filename: data.filename || file.name,
+      content: data.content || '',
+      contentType: data.contentType,
+      fileSizeBytes: data.fileSizeBytes,
+      status: data.status,
+      chunkCount: data.chunkCount,
+      errorMessage: data.errorMessage,
+      createdAt: data.createdAt,
+      processedAt: data.processedAt,
+      uploadedAt: data.createdAt || new Date().toISOString(),
+      size: data.fileSizeBytes || file.size,
+      type: fileExtension as 'pdf' | 'txt' | 'md' | 'docx'
+    }
   },
   
   // Summary Generation

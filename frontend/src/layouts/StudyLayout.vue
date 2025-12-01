@@ -49,7 +49,7 @@ const isActive = (path: string) => currentRoute.value === path
 <template>
   <div class="flex h-screen overflow-hidden">
     <!-- Sidebar -->
-    <aside class="w-64 border-r bg-sidebar shrink-0 hidden md:flex flex-col h-full">
+    <aside class="w-64 border-r bg-white/80 backdrop-blur-md shrink-0 hidden md:flex flex-col h-full">
       <!-- Header -->
       <div class="p-4 border-b">
         <div class="flex items-center gap-2">
@@ -134,11 +134,11 @@ const isActive = (path: string) => currentRoute.value === path
     </aside>
     
     <!-- Main Content -->
-    <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+    <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white/60 backdrop-blur-sm">
       <!-- Header with back button for tool pages -->
       <header 
         v-if="route.path.startsWith('/tools/')" 
-        class="flex items-center gap-2 p-4 border-b bg-background/95 backdrop-blur shrink-0"
+        class="flex items-center gap-2 p-4 border-b bg-white/80 backdrop-blur shrink-0"
       >
         <Button variant="ghost" size="icon" @click="goBack">
           <ArrowLeft class="w-4 h-4" />

@@ -6,8 +6,15 @@
 export interface UploadedNote {
   id: string
   filename: string
-  content: string
-  uploadedAt: string
+  content?: string
+  contentType?: string
+  fileSizeBytes?: number
+  status?: string
+  chunkCount?: number
+  errorMessage?: string | null
+  createdAt?: string | null
+  processedAt?: string | null
+  uploadedAt?: string
   size: number
   type: 'pdf' | 'txt' | 'md' | 'docx'
 }
