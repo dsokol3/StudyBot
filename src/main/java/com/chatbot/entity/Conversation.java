@@ -20,6 +20,10 @@ public class Conversation {
     @Column(name = "conversation_id", length = 100)
     private String conversationId;
     
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_person")
+    private Person person;
+    
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
     
