@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import jakarta.persistence.Convert;
+import com.chatbot.converter.FloatArrayToStringConverter;
 
 @Entity
 @Table(name = "document_chunks")
@@ -32,8 +34,10 @@ public class DocumentChunk {
     @Column(name = "token_count", nullable = false)
     private Integer tokenCount;
     
-    // Embedding stored as float array, converted to pgvector in repository
-    @Column(name = "embedding", columnDefinition = "vector(768)")
+    // Embedding stored as float array. Column definition is configurable
+    // so we can use Postgres pgvector in production and a TEXT column for H2 in dev.
+    @Column(name = "embedding", columnDefinition = "TEXT")
+    @Convert(converter = FloatArrayToStringConverter.class)
     private float[] embedding;
     
     @Column(name = "created_at", nullable = false)

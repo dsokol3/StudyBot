@@ -68,7 +68,8 @@ const renderDiagram = async () => {
 }
 
 const handleGenerate = async () => {
-  const content = useFullNotes.value ? notesContent.value : selectedContent.value
+  // When using full notes, pass undefined to let generate() fetch from backend if needed
+  const content = useFullNotes.value ? undefined : selectedContent.value
   await generate(content, { force: true })
 }
 

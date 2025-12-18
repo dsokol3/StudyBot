@@ -25,7 +25,7 @@ const useFullNotes = ref(true)
 const copied = ref(false)
 
 const handleGenerate = async () => {
-  // When using full notes, let generate() fetch from backend if notesContent is empty
+  // When using full notes, pass undefined to let generate() fetch from backend if needed
   const content = useFullNotes.value ? undefined : selectedContent.value
   await generate(content, { force: true })
 }

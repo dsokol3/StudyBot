@@ -91,7 +91,8 @@ export const useGenerationStore = defineStore('generation', () => {
         case 'study-plan':
           result = await studyApi.generateStudyPlan(
             options?.additionalParams?.examDate as string || '',
-            content
+            content,
+            options?.additionalParams?.hoursPerDay as number || 2
           )
           break
         default:

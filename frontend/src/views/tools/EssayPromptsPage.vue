@@ -26,7 +26,8 @@ const expandedPrompts = ref<Set<string>>(new Set())
 const copiedId = ref<string | null>(null)
 
 const handleGenerate = async () => {
-  const content = useFullNotes.value ? notesContent.value : selectedContent.value
+  // When using full notes, pass undefined to let generate() fetch from backend if needed
+  const content = useFullNotes.value ? undefined : selectedContent.value
   await generate(content, { force: true })
   expandedPrompts.value.clear()
 }

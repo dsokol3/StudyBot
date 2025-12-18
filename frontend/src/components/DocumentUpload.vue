@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'uploaded', document: Document): void
+  (e: 'upload-complete'): void
   (e: 'error', message: string): void
 }>()
 
@@ -111,6 +112,7 @@ const uploadFile = async () => {
     )
     
     emit('uploaded', document)
+    emit('upload-complete')
     clearSelection()
   } catch (err: any) {
     const message = err.response?.data?.error || err.message || 'Upload failed'
