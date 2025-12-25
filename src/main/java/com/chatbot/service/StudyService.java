@@ -333,6 +333,7 @@ public class StudyService {
             
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             
+            @SuppressWarnings("null")
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url,
                 HttpMethod.POST,
@@ -347,7 +348,15 @@ public class StudyService {
             if (responseBody != null && responseBody.containsKey("response")) {
                 String jsonResponse = (String) responseBody.get("response");
                 log.debug("Ollama JSON response: {}", jsonResponse.substring(0, Math.min(200, jsonResponse.length())));
-                return objectMapper.readValue(jsonResponse, new TypeReference<Map<String, Object>>() {});
+                
+                try {
+                    // Try to parse the JSON response
+                    return objectMapper.readValue(jsonResponse, new TypeReference<Map<String, Object>>() {});
+                } catch (Exception parseEx) {
+                    log.error("Failed to parse Ollama JSON response: {}", parseEx.getMessage());
+                    log.debug("Raw response that failed to parse: {}", jsonResponse.substring(0, Math.min(500, jsonResponse.length())));
+                    return fallback;
+                }
             }
             
             log.warn("Ollama response did not contain 'response' field");

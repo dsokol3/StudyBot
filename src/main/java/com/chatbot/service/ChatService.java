@@ -262,6 +262,7 @@ public class ChatService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
         
         // Make API call using exchange method
+        @SuppressWarnings("null")
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
             url, 
             HttpMethod.POST, 
@@ -282,10 +283,13 @@ public class ChatService {
         return "I received an empty response from Ollama.";
     }
     
+    @SuppressWarnings("null")
     public void clearConversation(String conversationId) {
         // Delete all messages in the conversation
         List<Message> messages = messageRepository.findByConversationConversationIdOrderByCreatedAtAsc(conversationId);
-        messageRepository.deleteAll(messages);
+        if (messages != null && !messages.isEmpty()) {
+            messageRepository.deleteAll(messages);
+        }
         
         // Delete the conversation
         conversationRepository.findByConversationId(conversationId)

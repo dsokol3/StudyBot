@@ -1,10 +1,8 @@
 import axios from 'axios'
 import type { ChatRequest, ChatResponse, Document, DocumentStatus, DocumentStatusResponse } from '@/types'
 
-const API_BASE_URL = 'http://localhost:8080/api'
-
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },

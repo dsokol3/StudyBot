@@ -57,6 +57,7 @@ public class EmbeddingService {
             
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             
+            @SuppressWarnings("null")
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url,
                 HttpMethod.POST,

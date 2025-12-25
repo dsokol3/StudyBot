@@ -123,6 +123,7 @@ public class DocumentService {
     public void processDocumentAsync(UUID documentId) {
         log.info("Starting async processing for document: {}", documentId);
         
+        @SuppressWarnings("null")
         Document document = documentRepository.findById(documentId).orElse(null);
         if (document == null) {
             log.error("Document not found: {}", documentId);
@@ -183,7 +184,9 @@ public class DocumentService {
      * Get document by ID.
      */
     public Optional<Document> getDocument(UUID documentId) {
-        return documentRepository.findById(documentId);
+        @SuppressWarnings("null")
+        var result = documentRepository.findById(documentId);
+        return result;
     }
     
     /**
@@ -199,7 +202,9 @@ public class DocumentService {
     @Transactional(readOnly = true)
     public Optional<String> getDocumentContent(UUID documentId) {
         try {
-            return documentRepository.findById(documentId)
+            @SuppressWarnings("null")
+            var docOptional = documentRepository.findById(documentId);
+            return docOptional
                 .filter(doc -> doc.getStatus() == DocumentStatus.COMPLETED)
                 .map(doc -> {
                     List<String> contents = chunkRepository.findContentByDocumentIdOrderByChunkOrderAsc(documentId);
@@ -245,6 +250,7 @@ public class DocumentService {
      */
     @Transactional
     public void deleteDocument(UUID documentId) {
+        @SuppressWarnings("null")
         Document document = documentRepository.findById(documentId).orElse(null);
         if (document != null) {
             // Delete file from storage
