@@ -244,13 +244,28 @@ public class ChatService {
     }
     
     private String callOllama(List<Map<String, String>> history) {
-        String url = ollamaUrl + "/api/chat";
+        // Detect if using OpenAI-compatible API (Groq, OpenAI, etc.) or local Ollama
+        boolean isOpenAiCompatible = ollamaApiKey != null && !ollamaApiKey.isEmpty() && !ollamaUrl.contains("localhost:11434");
         
-        // Prepare request body
+        String url;
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", ollamaModel);
-        requestBody.put("messages", history);
-        requestBody.put("stream", false);
+        
+        if (isOpenAiCompatible) {
+            // OpenAI-compatible API format (Groq, OpenAI, Azure, etc.)
+            url = ollamaUrl + "/chat/completions";
+            requestBody.put("model", ollamaModel);
+            requestBody.put("messages", history);
+            requestBody.put("temperature", 0.7);
+            requestBody.put("max_tokens", 2048);
+            log.info("⚡ Using OpenAI-compatible API: {}", ollamaUrl);
+        } else {
+            // Local Ollama API format
+            url = ollamaUrl + "/api/chat";
+            requestBody.put("model", ollamaModel);
+            requestBody.put("messages", history);
+            requestBody.put("stream", false);
+            log.info("🦙 Using local Ollama API: {}", ollamaUrl);
+        }
         
         // Set headers
         HttpHeaders headers = new HttpHeaders();
@@ -272,15 +287,28 @@ public class ChatService {
         
         Map<String, Object> responseBody = response.getBody();
         if (responseBody != null) {
-            // Parse Ollama's response format
-            @SuppressWarnings("unchecked")
-            Map<String, Object> message = (Map<String, Object>) responseBody.get("message");
-            if (message != null) {
-                return (String) message.get("content");
+            if (isOpenAiCompatible) {
+                // Parse OpenAI-compatible response format
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> choices = (List<Map<String, Object>>) responseBody.get("choices");
+                if (choices != null && !choices.isEmpty()) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                    if (message != null) {
+                        return (String) message.get("content");
+                    }
+                }
+            } else {
+                // Parse Ollama response format
+                @SuppressWarnings("unchecked")
+                Map<String, Object> message = (Map<String, Object>) responseBody.get("message");
+                if (message != null) {
+                    return (String) message.get("content");
+                }
             }
         }
         
-        return "I received an empty response from Ollama.";
+        return "I received an empty response from the AI.";
     }
     
     @SuppressWarnings("null")

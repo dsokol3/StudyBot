@@ -20,19 +20,22 @@ public class StudyService {
     private static final Logger log = LoggerFactory.getLogger(StudyService.class);
     
     @Value("${ollama.api.url:http://localhost:11434}")
-    private String ollamaUrl;
+    private String apiUrl;
+    
+    @Value("${ollama.api.key:}")
+    private String apiKey;
     
     @Value("${ollama.model:llama3}")
-    private String ollamaModel;
+    private String model;
     
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     public StudyService(RestTemplateBuilder restTemplateBuilder) {
-        // Configure RestTemplate with longer timeouts for AI generation
+        // Configure RestTemplate with reasonable timeouts for cloud APIs
         this.restTemplate = restTemplateBuilder
-            .connectTimeout(Duration.ofSeconds(10))
-            .readTimeout(Duration.ofMinutes(3)) // AI generation can take a while
+            .connectTimeout(Duration.ofSeconds(30))
+            .readTimeout(Duration.ofMinutes(2)) // Cloud APIs are much faster
             .build();
     }
     
@@ -58,7 +61,7 @@ public class StudyService {
             }
             """.formatted(content);
         
-        return callOllamaForJson(prompt, createDefaultSummary());
+        return callLlmForJson(prompt, createDefaultSummary());
     }
     
     public Map<String, Object> generateFlashcards(String content, int count) {
@@ -98,7 +101,7 @@ public class StudyService {
             Create exactly %d cards with varied difficulty levels.
             """.formatted(count, content, count, count);
         
-        return callOllamaForJson(prompt, createDefaultFlashcards());
+        return callLlmForJson(prompt, createDefaultFlashcards());
     }
     
     public Map<String, Object> generateQuestions(String content, int count) {
@@ -134,7 +137,7 @@ public class StudyService {
             Create exactly %d questions.
             """.formatted(count, content, count, count);
         
-        return callOllamaForJson(prompt, createDefaultQuestions());
+        return callLlmForJson(prompt, createDefaultQuestions());
     }
     
     public Map<String, Object> generateEssayPrompts(String content, int count) {
@@ -173,7 +176,7 @@ public class StudyService {
             Create exactly %d essay prompts with varied difficulty.
             """.formatted(count, content, count, count);
         
-        return callOllamaForJson(prompt, createDefaultEssayPrompts());
+        return callLlmForJson(prompt, createDefaultEssayPrompts());
     }
     
     public Map<String, Object> explainText(String content) {
@@ -206,7 +209,7 @@ public class StudyService {
             Include 3-5 term explanations covering the most important concepts.
             """.formatted(content);
         
-        return callOllamaForJson(prompt, createDefaultExplanations());
+        return callLlmForJson(prompt, createDefaultExplanations());
     }
     
     public Map<String, Object> generateDiagram(String content) {
@@ -246,7 +249,7 @@ public class StudyService {
             Escape special characters in labels. Use --> for arrows.
             """.formatted(content);
         
-        return callOllamaForJson(prompt, createDefaultDiagram());
+        return callLlmForJson(prompt, createDefaultDiagram());
     }
     
     public Map<String, Object> generateStudyPlan(String content, String examDate, int hoursPerDay) {
@@ -299,37 +302,83 @@ public class StudyService {
             - Include 3-7 study sessions depending on time until exam
             """.formatted(content, examDate, hoursPerDay, examDate);
         
-        return callOllamaForJson(prompt, createDefaultStudyPlan(examDate));
+        return callLlmForJson(prompt, createDefaultStudyPlan(examDate));
     }
     
-    private Map<String, Object> callOllamaForJson(String prompt, Map<String, Object> fallback) {
+    /**
+     * Calls the LLM API (supports both Ollama and OpenAI-compatible APIs like Groq)
+     */
+    private Map<String, Object> callLlmForJson(String prompt, Map<String, Object> fallback) {
         try {
-            String url = ollamaUrl + "/api/generate";
+            // Detect if using OpenAI-compatible API (Groq, OpenAI, etc.) or local Ollama
+            boolean isOpenAiCompatible = apiKey != null && !apiKey.isEmpty() && !apiUrl.contains("localhost:11434");
             
-            // Truncate content if too large to prevent very long generation times
+            String url;
+            Map<String, Object> requestBody = new HashMap<>();
+            
+            // Truncate content if too large
             String truncatedPrompt = prompt;
-            if (prompt.length() > 8000) {
-                log.warn("Prompt too long ({} chars), truncating to 8000", prompt.length());
-                truncatedPrompt = prompt.substring(0, 8000) + "\n\n[Content truncated for processing...]";
+            if (prompt.length() > 12000) {
+                log.warn("⚠️  Prompt too long ({} chars), truncating to 12000", prompt.length());
+                truncatedPrompt = prompt.substring(0, 12000) + "\n\n[Content truncated for processing...]";
             }
             
-            log.info("Calling Ollama model {} with prompt of {} chars", ollamaModel, truncatedPrompt.length());
+            log.info("🤖 Calling LLM model: {}", model);
+            log.info("📝 Prompt size: {} characters", truncatedPrompt.length());
+            log.info("🌐 API URL: {}", apiUrl);
+            log.info("🔑 Using API key: {}", apiKey != null && !apiKey.isEmpty() ? "Yes" : "No");
             long startTime = System.currentTimeMillis();
             
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("model", ollamaModel);
-            requestBody.put("prompt", truncatedPrompt);
-            requestBody.put("stream", false);
-            requestBody.put("format", "json");
-            // Add options for better generation
-            Map<String, Object> options = new HashMap<>();
-            options.put("num_predict", 4096); // Allow longer responses for detailed content
-            options.put("temperature", 0.7);  // Balance creativity and consistency
-            options.put("top_p", 0.9);        // Nucleus sampling for quality
-            requestBody.put("options", options);
+            if (isOpenAiCompatible) {
+                // OpenAI-compatible API format (Groq, OpenAI, Azure, etc.)
+                url = apiUrl + "/chat/completions";
+                
+                List<Map<String, String>> messages = new ArrayList<>();
+                Map<String, String> systemMsg = new HashMap<>();
+                systemMsg.put("role", "system");
+                systemMsg.put("content", "You are a helpful AI assistant that always responds with valid JSON. Never include markdown code blocks, just raw JSON.");
+                messages.add(systemMsg);
+                
+                Map<String, String> userMsg = new HashMap<>();
+                userMsg.put("role", "user");
+                userMsg.put("content", truncatedPrompt);
+                messages.add(userMsg);
+                
+                requestBody.put("model", model);
+                requestBody.put("messages", messages);
+                requestBody.put("temperature", 0.7);
+                requestBody.put("max_tokens", 2048);
+                
+                // Groq supports JSON mode
+                Map<String, String> responseFormat = new HashMap<>();
+                responseFormat.put("type", "json_object");
+                requestBody.put("response_format", responseFormat);
+                
+                log.info("⚡ Using OpenAI-compatible API (fast cloud inference)");
+            } else {
+                // Local Ollama API format
+                url = apiUrl + "/api/generate";
+                
+                requestBody.put("model", model);
+                requestBody.put("prompt", truncatedPrompt);
+                requestBody.put("stream", false);
+                requestBody.put("format", "json");
+                
+                Map<String, Object> options = new HashMap<>();
+                options.put("num_predict", 2048);
+                options.put("temperature", 0.7);
+                requestBody.put("options", options);
+                
+                log.info("🦙 Using local Ollama API");
+            }
+            
+            log.info("⏳ Waiting for AI response...");
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            if (apiKey != null && !apiKey.isEmpty()) {
+                headers.set("Authorization", "Bearer " + apiKey);
+            }
             
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             
@@ -342,27 +391,63 @@ public class StudyService {
             );
             
             long elapsed = System.currentTimeMillis() - startTime;
-            log.info("Ollama response received in {} ms", elapsed);
+            log.info("✅ Response received in {}.{} seconds", elapsed / 1000, elapsed % 1000);
             
             Map<String, Object> responseBody = response.getBody();
-            if (responseBody != null && responseBody.containsKey("response")) {
-                String jsonResponse = (String) responseBody.get("response");
-                log.debug("Ollama JSON response: {}", jsonResponse.substring(0, Math.min(200, jsonResponse.length())));
+            String jsonResponse = null;
+            
+            if (isOpenAiCompatible) {
+                // Parse OpenAI-compatible response format
+                if (responseBody != null && responseBody.containsKey("choices")) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> choices = (List<Map<String, Object>>) responseBody.get("choices");
+                    if (choices != null && !choices.isEmpty()) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                        if (message != null) {
+                            jsonResponse = (String) message.get("content");
+                        }
+                    }
+                }
+            } else {
+                // Parse Ollama response format
+                if (responseBody != null && responseBody.containsKey("response")) {
+                    jsonResponse = (String) responseBody.get("response");
+                }
+            }
+            
+            if (jsonResponse != null) {
+                log.info("📦 Response size: {} characters", jsonResponse.length());
+                log.debug("Raw response: {}", jsonResponse.substring(0, Math.min(300, jsonResponse.length())));
+                
+                // Clean up response - remove markdown code blocks if present
+                jsonResponse = jsonResponse.trim();
+                if (jsonResponse.startsWith("```json")) {
+                    jsonResponse = jsonResponse.substring(7);
+                }
+                if (jsonResponse.startsWith("```")) {
+                    jsonResponse = jsonResponse.substring(3);
+                }
+                if (jsonResponse.endsWith("```")) {
+                    jsonResponse = jsonResponse.substring(0, jsonResponse.length() - 3);
+                }
+                jsonResponse = jsonResponse.trim();
                 
                 try {
-                    // Try to parse the JSON response
-                    return objectMapper.readValue(jsonResponse, new TypeReference<Map<String, Object>>() {});
+                    Map<String, Object> parsed = objectMapper.readValue(jsonResponse, new TypeReference<Map<String, Object>>() {});
+                    log.info("✅ JSON parsed successfully");
+                    return parsed;
                 } catch (Exception parseEx) {
-                    log.error("Failed to parse Ollama JSON response: {}", parseEx.getMessage());
-                    log.debug("Raw response that failed to parse: {}", jsonResponse.substring(0, Math.min(500, jsonResponse.length())));
+                    log.error("❌ Failed to parse JSON response: {}", parseEx.getMessage());
+                    log.error("📄 Raw response: {}", jsonResponse.substring(0, Math.min(500, jsonResponse.length())));
                     return fallback;
                 }
             }
             
-            log.warn("Ollama response did not contain 'response' field");
+            log.warn("⚠️  Response did not contain expected content field");
             return fallback;
         } catch (Exception e) {
-            log.error("Error calling Ollama for study generation: {}", e.getMessage(), e);
+            log.error("❌ Error calling LLM API: {}", e.getMessage(), e);
             return fallback;
         }
     }

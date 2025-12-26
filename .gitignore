@@ -1,3 +1,8 @@
+# Environment files (secrets - never commit!)
+.env
+.env.local
+.env.*.local
+
 # Maven
 target/
 pom.xml.tag

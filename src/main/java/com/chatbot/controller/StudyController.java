@@ -29,17 +29,36 @@ public class StudyController {
     @PostMapping("/generate/summary")
     public ResponseEntity<Map<String, Object>> generateSummary(@RequestBody Map<String, Object> request) {
         try {
-            log.info("Generating summary");
             String content = (String) request.get("content");
             if (content == null || content.isBlank()) {
+                log.warn("Summary generation failed: no content provided");
                 return ResponseEntity.badRequest().body(Map.of("error", "Content is required"));
             }
             
+            log.info("========================================");
+            log.info("SUMMARY GENERATION STARTED");
+            log.info("Content length: {} characters", content.length());
+            log.info("Sending request to Ollama...");
+            log.info("========================================");
+            
+            long startTime = System.currentTimeMillis();
             Map<String, Object> result = studyService.generateSummary(content);
+            long duration = System.currentTimeMillis() - startTime;
+            
             result.put("type", "summary");
+            
+            log.info("========================================");
+            log.info("SUMMARY GENERATION COMPLETED");
+            log.info("Total time: {} seconds", duration / 1000.0);
+            log.info("Summary word count: {}", result.getOrDefault("wordCount", "unknown"));
+            log.info("========================================");
+            
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            log.error("Error generating summary: {}", e.getMessage(), e);
+            log.error("========================================");
+            log.error("SUMMARY GENERATION FAILED");
+            log.error("Error: {}", e.getMessage(), e);
+            log.error("========================================");
             return ResponseEntity.internalServerError()
                 .body(Map.of("error", "Failed to generate summary: " + e.getMessage()));
         }
