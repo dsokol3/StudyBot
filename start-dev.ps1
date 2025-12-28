@@ -1,6 +1,19 @@
+# Load environment variables from .env file
+$envFile = Join-Path $PSScriptRoot ".env"
+if (Test-Path $envFile) {
+    $envVars = Get-Content $envFile | ForEach-Object {
+        if ($_ -match '^([^#=]+)=(.*)$') {
+            "$($matches[1].Trim())=$($matches[2].Trim())"
+        }
+    }
+    $envSetup = $envVars -join "; `$env:"
+    if ($envSetup) { $envSetup = "`$env:$envSetup" }
+}
+
 # Start Backend
 Write-Host "Starting Java Backend..." -ForegroundColor Green
-$backendCommand = "Set-Location -Path '$PSScriptRoot'; mvn spring-boot:run"
+$javaHome = "C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot"
+$backendCommand = "Set-Location -Path '$PSScriptRoot'; $envSetup; `$env:JAVA_HOME = '$javaHome'; mvn spring-boot:run"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCommand
 
 # Wait a moment for backend to initialize

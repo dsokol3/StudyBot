@@ -227,17 +227,17 @@ const downloadAsAnki = () => {
           >
             <Card 
               :class="[
-                'min-h-[300px] transition-all duration-500 transform-style-3d',
-                isFlipped && 'rotate-y-180'
+                'min-h-[300px] transition-all duration-500 transform-style-3d relative',
+                isFlipped && 'flashcard-flipped'
               ]"
             >
-              <CardContent class="p-8 h-full flex flex-col items-center justify-center text-center relative">
+              <CardContent class="p-8 h-full min-h-[300px]">
                 <!-- Front -->
                 <div 
                   :class="[
-                    'absolute inset-0 flex flex-col items-center justify-center p-8 backface-hidden',
-                    isFlipped && 'invisible'
+                    'absolute inset-0 flex flex-col items-center justify-center p-8 backface-hidden transition-all duration-500 flashcard-front',
                   ]"
+                  :style="{ opacity: isFlipped ? 0 : 1, pointerEvents: isFlipped ? 'none' : 'auto' }"
                 >
                   <Badge 
                     v-if="currentCard"
@@ -252,11 +252,13 @@ const downloadAsAnki = () => {
                 <!-- Back -->
                 <div 
                   :class="[
-                    'absolute inset-0 flex flex-col items-center justify-center p-8 backface-hidden rotate-y-180',
-                    !isFlipped && 'invisible'
+                    'absolute inset-0 flex flex-col items-center justify-center p-8 backface-hidden transition-all duration-500 flashcard-back',
                   ]"
+                  :style="{ opacity: isFlipped ? 1 : 0, pointerEvents: isFlipped ? 'auto' : 'none' }"
                 >
-                  <p class="text-lg">{{ currentCard?.back }}</p>
+                  <Badge class="mb-4 bg-green-500/10 text-green-600">Answer</Badge>
+                  <p class="text-lg text-center">{{ currentCard?.back }}</p>
+                  <p class="text-sm text-muted-foreground mt-4">Click to flip back</p>
                 </div>
               </CardContent>
             </Card>
@@ -349,10 +351,28 @@ const downloadAsAnki = () => {
 }
 
 .backface-hidden {
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }
 
 .rotate-y-180 {
   transform: rotateY(180deg);
+}
+
+/* Fix for the flashcard flip - the back side needs to be pre-rotated */
+.flashcard-front {
+  transform: rotateY(0deg);
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+}
+
+.flashcard-flipped .flashcard-front {
+  transform: rotateY(180deg);
+}
+
+.flashcard-flipped .flashcard-back {
+  transform: rotateY(360deg);
 }
 </style>

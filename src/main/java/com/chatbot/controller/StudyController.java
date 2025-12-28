@@ -167,13 +167,15 @@ public class StudyController {
         try {
             log.info("Generating diagram");
             String content = (String) request.get("content");
+            String diagramType = (String) request.getOrDefault("diagramType", "concept-map");
             
             if (content == null || content.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Content is required"));
             }
             
-            Map<String, Object> result = studyService.generateDiagram(content);
+            Map<String, Object> result = studyService.generateDiagram(content, diagramType);
             result.put("type", "diagrams");
+            result.put("diagramType", diagramType);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error generating diagram: {}", e.getMessage(), e);

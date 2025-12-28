@@ -228,8 +228,24 @@ public class StudyService {
         return callLlmForJson(prompt, createDefaultExplanations());
     }
     
-    public Map<String, Object> generateDiagram(String content) {
-        String prompt = """
+    public Map<String, Object> generateDiagram(String content, String diagramType) {
+        String prompt = getDiagramPrompt(content, diagramType);
+        return callLlmForJson(prompt, createDefaultDiagram(diagramType));
+    }
+    
+    private String getDiagramPrompt(String content, String diagramType) {
+        return switch (diagramType) {
+            case "timeline" -> getTimelinePrompt(content);
+            case "flowchart" -> getFlowchartPrompt(content);
+            case "hierarchy" -> getHierarchyPrompt(content);
+            case "mind-map" -> getMindMapPrompt(content);
+            case "sequence" -> getSequencePrompt(content);
+            default -> getConceptMapPrompt(content);
+        };
+    }
+    
+    private String getConceptMapPrompt(String content) {
+        return """
             You are an expert at creating visual concept maps. Create a clear concept diagram from the following study content using Mermaid.js flowchart syntax.
             
             STUDY CONTENT:
@@ -247,16 +263,10 @@ public class StudyService {
                 "mermaidCode": "graph TD\\n    A[Main Concept] --> B[Sub Concept 1]\\n    A --> C[Sub Concept 2]\\n    B --> D[Detail 1]\\n    C --> E[Detail 2]",
                 "nodes": [
                     {"id": "A", "label": "Main Concept", "type": "concept"},
-                    {"id": "B", "label": "Sub Concept 1", "type": "concept"},
-                    {"id": "C", "label": "Sub Concept 2", "type": "concept"},
-                    {"id": "D", "label": "Detail 1", "type": "detail"},
-                    {"id": "E", "label": "Detail 2", "type": "detail"}
+                    {"id": "B", "label": "Sub Concept 1", "type": "concept"}
                 ],
                 "edges": [
-                    {"from": "A", "to": "B", "label": "includes"},
-                    {"from": "A", "to": "C", "label": "includes"},
-                    {"from": "B", "to": "D"},
-                    {"from": "C", "to": "E"}
+                    {"from": "A", "to": "B", "label": "includes"}
                 ],
                 "description": "Brief description of what this diagram shows"
             }
@@ -264,8 +274,193 @@ public class StudyService {
             IMPORTANT: Use valid Mermaid.js graph TD (top-down) syntax. Use letters A-Z for node IDs. 
             Escape special characters in labels. Use --> for arrows.
             """.formatted(content);
+    }
+    
+    private String getTimelinePrompt(String content) {
+        return """
+            You are an expert at creating visual timelines. Create a chronological timeline diagram from the following study content using Mermaid.js syntax.
+            
+            STUDY CONTENT:
+            %s
+            
+            INSTRUCTIONS:
+            1. Identify key events, dates, or periods mentioned in the content
+            2. Arrange them in chronological order from earliest to latest
+            3. Use clear, concise labels with dates/periods if available
+            4. Show the progression of events over time
+            5. Include 4-8 events for readability
+            
+            Respond with ONLY a valid JSON object (no markdown, no code blocks, just pure JSON):
+            {
+                "mermaidCode": "graph LR\\n    A[1776: Declaration] --> B[1787: Constitution]\\n    B --> C[1791: Bill of Rights]\\n    C --> D[1803: Louisiana Purchase]",
+                "nodes": [
+                    {"id": "A", "label": "1776: Declaration of Independence", "type": "concept"},
+                    {"id": "B", "label": "1787: Constitution Ratified", "type": "concept"}
+                ],
+                "edges": [
+                    {"from": "A", "to": "B", "label": "leads to"}
+                ],
+                "description": "Timeline showing chronological order of events"
+            }
+            
+            IMPORTANT: Use valid Mermaid.js graph LR (left-to-right) syntax for horizontal timeline flow.
+            Put dates/periods at the start of each node label. Use --> for arrows showing progression.
+            """.formatted(content);
+    }
+    
+    private String getFlowchartPrompt(String content) {
+        return """
+            You are an expert at creating flowcharts. Create a process flowchart from the following study content using Mermaid.js syntax.
+            
+            STUDY CONTENT:
+            %s
+            
+            INSTRUCTIONS:
+            1. Identify the main process, steps, or decision points
+            2. Create a flowchart showing the sequence of steps
+            3. Use diamond shapes {Decision?} for decision points with Yes/No branches
+            4. Use rectangular shapes [Step] for actions/steps
+            5. Show the flow from start to end
+            
+            Respond with ONLY a valid JSON object (no markdown, no code blocks, just pure JSON):
+            {
+                "mermaidCode": "graph TD\\n    A[Start] --> B[Step 1]\\n    B --> C{Decision?}\\n    C -->|Yes| D[Action A]\\n    C -->|No| E[Action B]\\n    D --> F[End]\\n    E --> F",
+                "nodes": [
+                    {"id": "A", "label": "Start", "type": "concept"},
+                    {"id": "C", "label": "Decision Point", "type": "detail"}
+                ],
+                "edges": [
+                    {"from": "A", "to": "B"},
+                    {"from": "C", "to": "D", "label": "Yes"}
+                ],
+                "description": "Flowchart showing the process flow"
+            }
+            
+            IMPORTANT: Use valid Mermaid.js graph TD syntax. Use {Text} for diamond decision nodes.
+            Use |Label| on arrows for decision branches. Start and end nodes should be clearly marked.
+            """.formatted(content);
+    }
+    
+    private String getHierarchyPrompt(String content) {
+        return """
+            You are an expert at creating organizational hierarchies. Create a hierarchical structure diagram from the following study content using Mermaid.js syntax.
+            
+            STUDY CONTENT:
+            %s
+            
+            INSTRUCTIONS:
+            1. Identify the top-level category or main topic
+            2. Find subcategories that belong under the main topic
+            3. Add details or examples under each subcategory
+            4. Create a clear parent-child structure (tree format)
+            5. Keep it to 3-4 levels deep maximum
+            
+            Respond with ONLY a valid JSON object (no markdown, no code blocks, just pure JSON):
+            {
+                "mermaidCode": "graph TD\\n    A[Main Topic] --> B[Category 1]\\n    A --> C[Category 2]\\n    A --> D[Category 3]\\n    B --> E[Sub-item 1.1]\\n    B --> F[Sub-item 1.2]\\n    C --> G[Sub-item 2.1]",
+                "nodes": [
+                    {"id": "A", "label": "Main Topic", "type": "concept"},
+                    {"id": "B", "label": "Category 1", "type": "concept"},
+                    {"id": "E", "label": "Sub-item 1.1", "type": "detail"}
+                ],
+                "edges": [
+                    {"from": "A", "to": "B"},
+                    {"from": "B", "to": "E"}
+                ],
+                "description": "Hierarchical structure showing organization"
+            }
+            
+            IMPORTANT: Use valid Mermaid.js graph TD (top-down) syntax for hierarchical tree structure.
+            Each node should only have ONE parent. Use clear indentation in the logical structure.
+            """.formatted(content);
+    }
+    
+    private String getMindMapPrompt(String content) {
+        return """
+            You are an expert at creating mind maps. Create a radial mind map from the following study content using Mermaid.js syntax.
+            
+            STUDY CONTENT:
+            %s
+            
+            INSTRUCTIONS:
+            1. Identify the central idea or main topic
+            2. Find 4-6 major branches/themes that extend from the center
+            3. Add 1-2 sub-branches or details for each major branch
+            4. Use descriptive but concise labels
+            5. Create a balanced structure radiating from the center
+            
+            Respond with ONLY a valid JSON object (no markdown, no code blocks, just pure JSON):
+            {
+                "mermaidCode": "graph TD\\n    Center[Central Idea] --> A[Branch 1]\\n    Center --> B[Branch 2]\\n    Center --> C[Branch 3]\\n    Center --> D[Branch 4]\\n    A --> A1[Detail 1.1]\\n    A --> A2[Detail 1.2]\\n    B --> B1[Detail 2.1]\\n    C --> C1[Detail 3.1]",
+                "nodes": [
+                    {"id": "Center", "label": "Central Idea", "type": "concept"},
+                    {"id": "A", "label": "Branch 1", "type": "concept"},
+                    {"id": "A1", "label": "Detail 1.1", "type": "detail"}
+                ],
+                "edges": [
+                    {"from": "Center", "to": "A"},
+                    {"from": "A", "to": "A1"}
+                ],
+                "description": "Mind map with central topic and branching ideas"
+            }
+            
+            IMPORTANT: Use valid Mermaid.js graph TD syntax. The central node should connect to all major branches.
+            Each branch can have its own sub-nodes. Keep labels short for readability.
+            """.formatted(content);
+    }
+    
+    private String getSequencePrompt(String content) {
+        return """
+            You are an expert at creating sequence diagrams. Create a sequence diagram showing interactions from the following study content using Mermaid.js syntax.
+            
+            STUDY CONTENT:
+            %s
+            
+            INSTRUCTIONS:
+            1. Identify the participants/actors involved (people, systems, components)
+            2. Find the sequence of interactions or communications between them
+            3. Show the order of steps from top to bottom
+            4. Label each interaction clearly
+            5. Include 4-8 interactions for readability
+            
+            Respond with ONLY a valid JSON object (no markdown, no code blocks, just pure JSON):
+            {
+                "mermaidCode": "sequenceDiagram\\n    participant A as Actor 1\\n    participant B as Actor 2\\n    participant C as Actor 3\\n    A->>B: Step 1 action\\n    B->>C: Step 2 action\\n    C-->>B: Response\\n    B-->>A: Final result",
+                "nodes": [
+                    {"id": "A", "label": "Actor 1", "type": "concept"},
+                    {"id": "B", "label": "Actor 2", "type": "concept"}
+                ],
+                "edges": [
+                    {"from": "A", "to": "B", "label": "Step 1 action"}
+                ],
+                "description": "Sequence diagram showing step-by-step interactions"
+            }
+            
+            IMPORTANT: Use valid Mermaid.js sequenceDiagram syntax.
+            Use ->> for solid arrows and -->> for dashed response arrows.
+            Define participants first, then show interactions in order.
+            """.formatted(content);
+    }
+    
+    private Map<String, Object> createDefaultDiagram(String diagramType) {
+        String defaultCode = switch (diagramType) {
+            case "timeline" -> "graph LR\\n    A[Event 1] --> B[Event 2]";
+            case "flowchart" -> "graph TD\\n    A[Start] --> B{Decision}\\n    B -->|Yes| C[End]";
+            case "hierarchy" -> "graph TD\\n    A[Main] --> B[Sub 1]\\n    A --> C[Sub 2]";
+            case "mind-map" -> "graph TD\\n    A[Center] --> B[Branch 1]\\n    A --> C[Branch 2]";
+            case "sequence" -> "sequenceDiagram\\n    A->>B: Action";
+            default -> "graph TD\\n    A[Content] --> B[Analysis Pending]";
+        };
         
-        return callLlmForJson(prompt, createDefaultDiagram());
+        Map<String, Object> result = new HashMap<>();
+        result.put("mermaidCode", defaultCode);
+        result.put("nodes", List.of(
+            Map.of("id", "A", "label", "Content", "type", "concept"),
+            Map.of("id", "B", "label", "Analysis Pending", "type", "detail")
+        ));
+        result.put("edges", List.of(Map.of("from", "A", "to", "B")));
+        result.put("description", "Diagram generation pending");
+        return result;
     }
     
     public Map<String, Object> generateStudyPlan(String content, String examDate, int hoursPerDay) {
@@ -482,15 +677,7 @@ public class StudyService {
     }
     
     private Map<String, Object> createDefaultDiagram() {
-        Map<String, Object> result = new HashMap<>();
-        result.put("mermaidCode", "graph TD\n    A[Content] --> B[Analysis Pending]");
-        result.put("nodes", List.of(
-            Map.of("id", "A", "label", "Content", "type", "concept"),
-            Map.of("id", "B", "label", "Analysis Pending", "type", "detail")
-        ));
-        result.put("edges", List.of(Map.of("from", "A", "to", "B")));
-        result.put("description", "Diagram generation pending");
-        return result;
+        return createDefaultDiagram("concept-map");
     }
     
     private Map<String, Object> createDefaultStudyPlan(String examDate) {

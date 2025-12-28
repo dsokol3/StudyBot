@@ -1,6 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.entity.Document;
+import com.chatbot.entity.Document.DocumentStatus;
 import com.chatbot.entity.DocumentChunk;
 import com.chatbot.repository.DocumentChunkRepository;
 import com.chatbot.repository.DocumentRepository;
@@ -8,15 +9,20 @@ import com.chatbot.service.EmbeddingService.EmbeddingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * Service for retrieving relevant document chunks based on semantic similarity.
  * Implements the retrieval part of RAG (Retrieval-Augmented Generation).
+ * 
+ * In dev mode (H2 database), falls back to returning all document chunks
+ * since H2 doesn't support pgvector similarity search.
  */
 @Service
 public class RetrievalService {
@@ -32,14 +38,25 @@ public class RetrievalService {
     private final DocumentChunkRepository chunkRepository;
     private final DocumentRepository documentRepository;
     private final EmbeddingService embeddingService;
+    private final Environment environment;
     
     public RetrievalService(
             DocumentChunkRepository chunkRepository,
             DocumentRepository documentRepository,
-            EmbeddingService embeddingService) {
+            EmbeddingService embeddingService,
+            Environment environment) {
         this.chunkRepository = chunkRepository;
         this.documentRepository = documentRepository;
         this.embeddingService = embeddingService;
+        this.environment = environment;
+    }
+    
+    /**
+     * Check if running in dev mode (H2 database without vector support).
+     */
+    private boolean isDevMode() {
+        String[] activeProfiles = environment.getActiveProfiles();
+        return Arrays.asList(activeProfiles).contains("dev");
     }
     
     /**
@@ -50,6 +67,12 @@ public class RetrievalService {
      * @return List of relevant chunks with metadata
      */
     public List<RetrievedChunk> findRelevantChunks(String query, String conversationId) {
+        // In dev mode (H2), use fallback that returns all chunks
+        if (isDevMode()) {
+            log.info("Dev mode: Using fallback chunk retrieval (no vector search)");
+            return findAllChunksForConversation(conversationId);
+        }
+        
         try {
             // Generate embedding for the query
             float[] queryEmbedding = embeddingService.generateEmbedding(query);
@@ -77,9 +100,51 @@ public class RetrievalService {
     }
     
     /**
+     * Fallback for dev mode: Returns all chunks from completed documents in the conversation.
+     * Limited to topK chunks to avoid overwhelming the context.
+     */
+    private List<RetrievedChunk> findAllChunksForConversation(String conversationId) {
+        List<RetrievedChunk> allChunks = new ArrayList<>();
+        
+        List<Document> documents = documentRepository.findByConversationIdOrderByCreatedAtDesc(conversationId);
+        log.info("Found {} documents for conversation {} in dev mode", documents.size(), conversationId);
+        
+        for (Document doc : documents) {
+            if (doc.getStatus() == DocumentStatus.COMPLETED) {
+                List<String> contents = chunkRepository.findContentByDocumentIdOrderByChunkOrderAsc(doc.getId());
+                log.info("Document {} has {} chunks", doc.getOriginalFilename(), contents.size());
+                
+                for (int i = 0; i < contents.size() && allChunks.size() < topK; i++) {
+                    allChunks.add(new RetrievedChunk(
+                        null, // No chunk ID needed for dev mode
+                        doc.getId(),
+                        doc.getOriginalFilename(),
+                        i,
+                        contents.get(i),
+                        0 // Token count not tracked in dev mode
+                    ));
+                }
+            }
+            
+            if (allChunks.size() >= topK) {
+                break;
+            }
+        }
+        
+        log.info("Returning {} chunks in dev mode fallback", allChunks.size());
+        return allChunks;
+    }
+    
+    /**
      * Find relevant chunks across all documents (global knowledge base).
      */
     public List<RetrievedChunk> findRelevantChunksGlobal(String query) {
+        // In dev mode (H2), return empty list for global search
+        if (isDevMode()) {
+            log.info("Dev mode: Global vector search not supported with H2.");
+            return List.of();
+        }
+        
         try {
             float[] queryEmbedding = embeddingService.generateEmbedding(query);
             String vectorString = embeddingService.embeddingToVectorString(queryEmbedding);
