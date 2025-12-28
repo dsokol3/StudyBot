@@ -48,14 +48,14 @@
 </details>
 
 <details>
-<summary><b>� Study Plan</b> — Personalized schedule based on exam date</summary>
+<summary><b>📅 Study Plan</b> — Personalized schedule based on exam date</summary>
 <p align="center">
   <img src="docs/study-plan.png" alt="Study Plan" width="700">
 </p>
 </details>
 
 <details>
-<summary><b>�📝 Essay Prompts</b> — Beginner to advanced difficulty</summary>
+<summary><b>📝 Essay Prompts</b> — Beginner to advanced difficulty</summary>
 <p align="center">
   <img src="docs/essay-prompts.png" alt="Essay Prompts" width="700">
 </p>
@@ -425,19 +425,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👤 Author
 
-<table>
-<tr>
-<td align="center">
-<a href="https://github.com/dsokol3">
-<img src="https://github.com/dsokol3.png" width="100px;" alt="Devora Sokol"/><br />
-<sub><b>Devora Sokol</b></sub>
-</a>
-<br />
-<a href="https://github.com/dsokol3" title="GitHub">💻</a>
-<a href="https://linkedin.com/in/devorasokol" title="LinkedIn">💼</a>
-</td>
-</tr>
-</table>
+### **Devora Sokol**
+
+[![GitHub](https://img.shields.io/badge/GitHub-dsokol3-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/dsokol3)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-devorasokol-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/devorasokol)
 
 ---
 
