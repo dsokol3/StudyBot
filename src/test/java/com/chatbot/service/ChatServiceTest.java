@@ -36,12 +36,13 @@ class ChatServiceTest {
     @SuppressWarnings("null")
     void setUp() {
         chatService = new ChatService(conversationRepository, messageRepository, retrievalService);
-        // Set local Ollama URL for testing (won't actually call API in unit tests)
+        // Set Groq API configuration for testing (won't actually call API in unit tests due to mocks)
         @SuppressWarnings("null")
         Object service = chatService;
-        ReflectionTestUtils.setField(service, "ollamaUrl", "http://localhost:11434");
-        ReflectionTestUtils.setField(service, "ollamaModel", "llama3");
-        ReflectionTestUtils.setField(service, "ollamaApiKey", "");
+        ReflectionTestUtils.setField(service, "llmApiUrl", "https://api.groq.com/openai/v1");
+        ReflectionTestUtils.setField(service, "llmModel", "llama-3.1-8b-instant");
+        ReflectionTestUtils.setField(service, "llmApiKey", "test-api-key");
+        ReflectionTestUtils.setField(service, "ragEnabled", false);
         
         // Mock repository behavior
         when(conversationRepository.findByConversationId(anyString())).thenReturn(Optional.empty());

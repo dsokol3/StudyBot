@@ -26,8 +26,8 @@
         <maven.compiler.target>17</maven.compiler.target>
         <java.version>17</java.version>
 
-        <!-- Added Lombok version so compiler plugin works -->
-        <lombok.version>1.18.30</lombok.version>
+        <!-- Updated Lombok version for Java 17+ compatibility -->
+        <lombok.version>1.18.36</lombok.version>
     </properties>
 
     <dependencies>
@@ -75,7 +75,7 @@
             <version>2.9.1</version>
         </dependency>
 
-        <!-- OpenAI Java Client -->
+        <!-- OpenAI Java Client (used for Groq API compatibility) -->
         <dependency>
             <groupId>com.theokanning.openai-gpt3-java</groupId>
             <artifactId>service</artifactId>

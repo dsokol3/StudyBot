@@ -127,7 +127,7 @@ defineExpose({
               AI ChatBot 
             </h1>
             <p class="text-xs text-muted-foreground font-lato">Made by Devora Sokol</p>
-            <p class="text-xs text-muted-foreground font-medium">Powered by Ollama</p>
+            <p class="text-xs text-muted-foreground font-medium">⚡ Powered by Groq + Local Embeddings</p>
           </div>
           <div class="flex items-center gap-2 min-w-0">
             <div class="relative p-0.5 rounded-md bg-linear-to-r from-[#3F5EFB] to-[#FC466B]">

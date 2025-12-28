@@ -38,7 +38,7 @@ public class StudyController {
             log.info("========================================");
             log.info("SUMMARY GENERATION STARTED");
             log.info("Content length: {} characters", content.length());
-            log.info("Sending request to Ollama...");
+            log.info("Sending request to Groq API...");
             log.info("========================================");
             
             long startTime = System.currentTimeMillis();

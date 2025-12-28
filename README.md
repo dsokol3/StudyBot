@@ -91,8 +91,8 @@ This project demonstrates advanced AI integration and modern full-stack developm
                     ┌────────────┴────────────┐
                     │                         │
             ┌───────┴───────┐         ┌──────┴──────┐
-            │  Ollama LLM   │         │  Embedding  │
-            │     API       │         │   Service   │
+            │   Groq API    │         │    Local    │
+            │ (llama-3.1-8b)│         │  Embeddings │
             └───────────────┘         └─────────────┘
 ```
 
@@ -102,14 +102,14 @@ This project demonstrates advanced AI integration and modern full-stack developm
 
 **Backend:** Java 17 • Spring Boot 3.5 • PostgreSQL 16 • Hibernate • Maven • Apache POI • PDFBox  
 **Frontend:** Vue 3 • TypeScript 5.6 • Vite 6 • Pinia • TailwindCSS • shadcn-vue  
-**AI/ML:** Ollama (llama3.2:1b) • Vector Embeddings • RAG Architecture
+**AI/ML:** Groq API (llama-3.1-8b-instant) • Local Embeddings (384-dim) • RAG Architecture
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Java 17+, Node.js 18+, PostgreSQL 16+, Maven 3.6+, Ollama
+- Java 17+, Node.js 18+, PostgreSQL 16+, Maven 3.6+, Groq API Key
 
 ### Setup
 
@@ -119,17 +119,17 @@ docker-compose up -d postgres
 ```
 
 2. **Configure Application**
-spring.datasource.url=jdbc:postgresql://localhost:5432/chatbot_db
-ollama.api.url=http://localhost:11434
-ollama.model=llama3.2:1b
-```
 
-3. **Install Ollama & Model**
+Create a `.env` file (or copy from `.env.template`):
 ```bash
-ollama pull llama3.2:1b
+LLM_API_URL=https://api.groq.com/openai/v1
+LLM_API_KEY=your-groq-api-key-here
+LLM_MODEL=llama-3.1-8b-instant
 ```
 
-4. **Run Backend**
+Get your free Groq API key from: https://console.groq.com/
+
+3. **Run Backend**
 ```bash
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```

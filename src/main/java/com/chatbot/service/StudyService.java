@@ -14,29 +14,45 @@ import org.springframework.web.client.RestTemplate;
 import java.time.Duration;
 import java.util.*;
 
+/**
+ * Study Tools Service - generates study materials using Groq API.
+ * 
+ * UPDATED: Now uses GROQ ONLY for text generation (no Ollama dependency).
+ * 
+ * Features:
+ * - Summaries, flashcards, questions, essay prompts
+ * - Explanations, diagrams, study plans
+ * - JSON response parsing with fallbacks
+ */
 @Service
 public class StudyService {
     
     private static final Logger log = LoggerFactory.getLogger(StudyService.class);
     
-    @Value("${ollama.api.url:http://localhost:11434}")
-    private String apiUrl;
+    // LLM Configuration (Groq API)
+    @Value("${llm.api.url:https://api.groq.com/openai/v1}")
+    private String llmApiUrl;
     
-    @Value("${ollama.api.key:}")
-    private String apiKey;
+    @Value("${llm.api.key:}")
+    private String llmApiKey;
     
-    @Value("${ollama.model:llama3}")
-    private String model;
+    @Value("${llm.model:llama-3.1-8b-instant}")
+    private String llmModel;
     
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     public StudyService(RestTemplateBuilder restTemplateBuilder) {
-        // Configure RestTemplate with reasonable timeouts for cloud APIs
+        // Configure RestTemplate with reasonable timeouts
         this.restTemplate = restTemplateBuilder
             .connectTimeout(Duration.ofSeconds(30))
-            .readTimeout(Duration.ofMinutes(2)) // Cloud APIs are much faster
+            .readTimeout(Duration.ofMinutes(2))
             .build();
+        
+        log.info("╔══════════════════════════════════════════════════════════════╗");
+        log.info("║  📚 StudyService initialized with Groq API                   ║");
+        log.info("║  Model: llama-3.1-8b-instant (fast inference)               ║");
+        log.info("╚══════════════════════════════════════════════════════════════╝");
     }
     
     public Map<String, Object> generateSummary(String content) {
@@ -306,15 +322,14 @@ public class StudyService {
     }
     
     /**
-     * Calls the LLM API (supports both Ollama and OpenAI-compatible APIs like Groq)
+     * Calls the Groq API for JSON response generation.
+     * Uses OpenAI-compatible API format.
      */
     private Map<String, Object> callLlmForJson(String prompt, Map<String, Object> fallback) {
         try {
-            // Detect if using OpenAI-compatible API (Groq, OpenAI, etc.) or local Ollama
-            boolean isOpenAiCompatible = apiKey != null && !apiKey.isEmpty() && !apiUrl.contains("localhost:11434");
-            
-            String url;
-            Map<String, Object> requestBody = new HashMap<>();
+            log.info("╔══════════════════════════════════════════════════════════════╗");
+            log.info("║  🚀 Groq API Call (Study Tools)                              ║");
+            log.info("╚══════════════════════════════════════════════════════════════╝");
             
             // Truncate content if too large
             String truncatedPrompt = prompt;
@@ -323,61 +338,45 @@ public class StudyService {
                 truncatedPrompt = prompt.substring(0, 12000) + "\n\n[Content truncated for processing...]";
             }
             
-            log.info("🤖 Calling LLM model: {}", model);
+            log.info("🤖 Model: {}", llmModel);
             log.info("📝 Prompt size: {} characters", truncatedPrompt.length());
-            log.info("🌐 API URL: {}", apiUrl);
-            log.info("🔑 Using API key: {}", apiKey != null && !apiKey.isEmpty() ? "Yes" : "No");
+            log.info("🌐 API URL: {}", llmApiUrl);
+            log.info("🔑 Using API key: {}", llmApiKey != null && !llmApiKey.isEmpty() ? "Yes" : "No");
+            
             long startTime = System.currentTimeMillis();
             
-            if (isOpenAiCompatible) {
-                // OpenAI-compatible API format (Groq, OpenAI, Azure, etc.)
-                url = apiUrl + "/chat/completions";
-                
-                List<Map<String, String>> messages = new ArrayList<>();
-                Map<String, String> systemMsg = new HashMap<>();
-                systemMsg.put("role", "system");
-                systemMsg.put("content", "You are a helpful AI assistant that always responds with valid JSON. Never include markdown code blocks, just raw JSON.");
-                messages.add(systemMsg);
-                
-                Map<String, String> userMsg = new HashMap<>();
-                userMsg.put("role", "user");
-                userMsg.put("content", truncatedPrompt);
-                messages.add(userMsg);
-                
-                requestBody.put("model", model);
-                requestBody.put("messages", messages);
-                requestBody.put("temperature", 0.7);
-                requestBody.put("max_tokens", 2048);
-                
-                // Groq supports JSON mode
-                Map<String, String> responseFormat = new HashMap<>();
-                responseFormat.put("type", "json_object");
-                requestBody.put("response_format", responseFormat);
-                
-                log.info("⚡ Using OpenAI-compatible API (fast cloud inference)");
-            } else {
-                // Local Ollama API format
-                url = apiUrl + "/api/generate";
-                
-                requestBody.put("model", model);
-                requestBody.put("prompt", truncatedPrompt);
-                requestBody.put("stream", false);
-                requestBody.put("format", "json");
-                
-                Map<String, Object> options = new HashMap<>();
-                options.put("num_predict", 2048);
-                options.put("temperature", 0.7);
-                requestBody.put("options", options);
-                
-                log.info("🦙 Using local Ollama API");
-            }
+            String url = llmApiUrl + "/chat/completions";
             
-            log.info("⏳ Waiting for AI response...");
+            List<Map<String, String>> messages = new ArrayList<>();
+            Map<String, String> systemMsg = new HashMap<>();
+            systemMsg.put("role", "system");
+            systemMsg.put("content", "You are a helpful AI assistant that always responds with valid JSON. Never include markdown code blocks, just raw JSON.");
+            messages.add(systemMsg);
+            
+            Map<String, String> userMsg = new HashMap<>();
+            userMsg.put("role", "user");
+            userMsg.put("content", truncatedPrompt);
+            messages.add(userMsg);
+            
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", llmModel);
+            requestBody.put("messages", messages);
+            requestBody.put("temperature", 0.7);
+            requestBody.put("max_tokens", 2048);
+            
+            // Groq supports JSON mode
+            Map<String, String> responseFormat = new HashMap<>();
+            responseFormat.put("type", "json_object");
+            requestBody.put("response_format", responseFormat);
+            
+            log.info("⏳ Waiting for Groq response...");
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            if (apiKey != null && !apiKey.isEmpty()) {
-                headers.set("Authorization", "Bearer " + apiKey);
+            if (llmApiKey != null && !llmApiKey.isEmpty()) {
+                headers.set("Authorization", "Bearer " + llmApiKey);
+            } else {
+                log.warn("⚠️  No API key configured! Set LLM_API_KEY environment variable.");
             }
             
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
@@ -391,28 +390,21 @@ public class StudyService {
             );
             
             long elapsed = System.currentTimeMillis() - startTime;
-            log.info("✅ Response received in {}.{} seconds", elapsed / 1000, elapsed % 1000);
+            log.info("✅ Response received in {} ms", elapsed);
             
             Map<String, Object> responseBody = response.getBody();
             String jsonResponse = null;
             
-            if (isOpenAiCompatible) {
-                // Parse OpenAI-compatible response format
-                if (responseBody != null && responseBody.containsKey("choices")) {
+            // Parse OpenAI-compatible response format (Groq uses this)
+            if (responseBody != null && responseBody.containsKey("choices")) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> choices = (List<Map<String, Object>>) responseBody.get("choices");
+                if (choices != null && !choices.isEmpty()) {
                     @SuppressWarnings("unchecked")
-                    List<Map<String, Object>> choices = (List<Map<String, Object>>) responseBody.get("choices");
-                    if (choices != null && !choices.isEmpty()) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
-                        if (message != null) {
-                            jsonResponse = (String) message.get("content");
-                        }
+                    Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                    if (message != null) {
+                        jsonResponse = (String) message.get("content");
                     }
-                }
-            } else {
-                // Parse Ollama response format
-                if (responseBody != null && responseBody.containsKey("response")) {
-                    jsonResponse = (String) responseBody.get("response");
                 }
             }
             
@@ -447,7 +439,7 @@ public class StudyService {
             log.warn("⚠️  Response did not contain expected content field");
             return fallback;
         } catch (Exception e) {
-            log.error("❌ Error calling LLM API: {}", e.getMessage(), e);
+            log.error("❌ Error calling Groq API: {}", e.getMessage(), e);
             return fallback;
         }
     }
