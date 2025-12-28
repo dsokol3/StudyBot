@@ -45,3 +45,9 @@ Desktop.ini
 *.war
 *.ear
 hs_err_pid*
+
+# H2 Database files (local dev data)
+/data/
+
+# Uploaded files
+/uploads/
