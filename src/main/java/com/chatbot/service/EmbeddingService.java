@@ -1,42 +1,48 @@
 package com.chatbot.service;
 
+import com.chatbot.embedding.LocalEmbeddingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
- * Service for generating text embeddings using Ollama's embedding API.
- * Uses the nomic-embed-text model for high-quality embeddings.
+ * Service for generating text embeddings.
+ * 
+ * UPDATED: Now uses LOCAL HuggingFace embeddings (all-MiniLM-L6-v2)
+ * instead of Ollama API. This provides:
+ * - Faster inference (no network latency)
+ * - No dependency on external services
+ * - Consistent embeddings across restarts (with caching)
+ * 
+ * The embedding dimension is 384 (all-MiniLM-L6-v2 default).
  */
 @Service
 public class EmbeddingService {
     
     private static final Logger log = LoggerFactory.getLogger(EmbeddingService.class);
     
-    @Value("${ollama.api.url:http://localhost:11434}")
-    private String ollamaUrl;
-    
-    @Value("${rag.embedding.model:nomic-embed-text}")
-    private String embeddingModel;
-    
-    @Value("${rag.embedding.dimension:768}")
+    @Value("${rag.embedding.dimension:384}")
     private int embeddingDimension;
     
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final LocalEmbeddingService localEmbeddingService;
+    
+    public EmbeddingService(LocalEmbeddingService localEmbeddingService) {
+        this.localEmbeddingService = localEmbeddingService;
+        log.info("╔══════════════════════════════════════════════════════════════╗");
+        log.info("║  📦 EmbeddingService initialized with LOCAL embeddings       ║");
+        log.info("║  Model: all-MiniLM-L6-v2 (384 dimensions)                    ║");
+        log.info("║  Mode: CPU inference (no external API)                       ║");
+        log.info("╚══════════════════════════════════════════════════════════════╝");
+    }
     
     /**
-     * Generate embedding for a single text.
+     * Generate embedding for a single text using local model.
      * 
      * @param text The text to embed
-     * @return Float array of embedding values
+     * @return Float array of embedding values (384 dimensions)
      * @throws EmbeddingException if embedding generation fails
      */
     public float[] generateEmbedding(String text) throws EmbeddingException {
@@ -45,52 +51,19 @@ public class EmbeddingService {
         }
         
         try {
-            String url = ollamaUrl + "/api/embeddings";
+            log.debug("🔄 Generating local embedding for text of length {}", text.length());
+            long startTime = System.currentTimeMillis();
             
-            Map<String, Object> requestBody = Map.of(
-                "model", embeddingModel,
-                "prompt", text
-            );
+            float[] embedding = localEmbeddingService.generateEmbedding(text);
             
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            
-            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                entity,
-                new ParameterizedTypeReference<Map<String, Object>>() {}
-            );
-            
-            Map<String, Object> responseBody = response.getBody();
-            if (responseBody == null || !responseBody.containsKey("embedding")) {
-                throw new EmbeddingException("Invalid response from Ollama embedding API");
-            }
-            
-            @SuppressWarnings("unchecked")
-            List<Double> embeddingList = (List<Double>) responseBody.get("embedding");
-            
-            if (embeddingList == null || embeddingList.isEmpty()) {
-                throw new EmbeddingException("Empty embedding returned from Ollama");
-            }
-            
-            float[] embedding = new float[embeddingList.size()];
-            for (int i = 0; i < embeddingList.size(); i++) {
-                embedding[i] = embeddingList.get(i).floatValue();
-            }
-            
-            log.debug("Generated embedding of dimension {} for text of length {}", 
-                      embedding.length, text.length());
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.debug("✅ Local embedding generated in {} ms (dimension: {})", 
+                      elapsed, embedding.length);
             
             return embedding;
             
-        } catch (Exception e) {
-            if (e instanceof EmbeddingException) {
-                throw (EmbeddingException) e;
-            }
-            throw new EmbeddingException("Failed to generate embedding: " + e.getMessage(), e);
+        } catch (LocalEmbeddingService.EmbeddingException e) {
+            throw new EmbeddingException("Local embedding failed: " + e.getMessage(), e);
         }
     }
     
@@ -102,14 +75,20 @@ public class EmbeddingService {
      * @throws EmbeddingException if embedding generation fails
      */
     public List<float[]> generateEmbeddings(List<String> texts) throws EmbeddingException {
-        List<float[]> embeddings = new ArrayList<>();
+        log.info("📦 Generating local embeddings for {} texts...", texts.size());
+        long startTime = System.currentTimeMillis();
         
-        for (String text : texts) {
-            embeddings.add(generateEmbedding(text));
+        try {
+            List<float[]> embeddings = localEmbeddingService.generateEmbeddings(texts);
+            
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.info("✅ Generated {} local embeddings in {} ms", embeddings.size(), elapsed);
+            
+            return embeddings;
+            
+        } catch (LocalEmbeddingService.EmbeddingException e) {
+            throw new EmbeddingException("Batch embedding failed: " + e.getMessage(), e);
         }
-        
-        log.info("Generated {} embeddings", embeddings.size());
-        return embeddings;
     }
     
     /**
@@ -117,23 +96,32 @@ public class EmbeddingService {
      * Format: [0.1, 0.2, 0.3, ...]
      */
     public String embeddingToVectorString(float[] embedding) {
-        if (embedding == null || embedding.length == 0) {
-            return null;
-        }
-        
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < embedding.length; i++) {
-            if (i > 0) {
-                sb.append(",");
-            }
-            sb.append(embedding[i]);
-        }
-        sb.append("]");
-        return sb.toString();
+        return localEmbeddingService.embeddingToVectorString(embedding);
+    }
+    
+    /**
+     * Compute SHA-256 hash for content (used for caching).
+     */
+    public String computeContentHash(String content) {
+        return localEmbeddingService.computeHash(content);
+    }
+    
+    /**
+     * Check if embedding exists in cache for given content hash.
+     */
+    public boolean hasCachedEmbedding(String contentHash) {
+        return localEmbeddingService.hasCachedEmbedding(contentHash);
     }
     
     public int getEmbeddingDimension() {
-        return embeddingDimension;
+        return LocalEmbeddingService.EMBEDDING_DIMENSION;
+    }
+    
+    /**
+     * Check if the local model is loaded and ready.
+     */
+    public boolean isModelReady() {
+        return localEmbeddingService.isModelLoaded();
     }
     
     public static class EmbeddingException extends Exception {

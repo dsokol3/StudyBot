@@ -37,12 +37,15 @@ class ChatControllerTest {
     }
 
     @Test
+    @SuppressWarnings("null")
     void testSendMessage() throws Exception {
         when(chatService.processMessage(anyString(), anyString()))
             .thenReturn(mockResponse);
 
+        @SuppressWarnings("null")
+        var contentType = MediaType.APPLICATION_JSON;
         mockMvc.perform(post("/api/chat/message")
-                .contentType(MediaType.APPLICATION_JSON)
+                .contentType(contentType)
                 .content("{\"message\":\"Hello\",\"conversationId\":\"test-123\"}"))
                 .andExpect(request().asyncStarted())
                 .andExpect(status().isOk());

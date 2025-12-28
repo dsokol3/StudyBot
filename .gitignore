@@ -1,3 +1,8 @@
+# Environment files (secrets - never commit!)
+.env
+.env.local
+.env.*.local
+
 # Maven
 target/
 pom.xml.tag
@@ -40,3 +45,9 @@ Desktop.ini
 *.war
 *.ear
 hs_err_pid*
+
+# H2 Database files (local dev data)
+/data/
+
+# Uploaded files
+/uploads/

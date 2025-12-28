@@ -11,6 +11,10 @@ import java.util.regex.Pattern;
 
 /**
  * Service for splitting text into chunks suitable for embedding.
+ * 
+ * UPDATED: Now uses 400-500 token chunks with 50 token overlap
+ * to optimize for the all-MiniLM-L6-v2 embedding model.
+ * 
  * Uses a recursive character-based splitting strategy that respects
  * natural text boundaries (paragraphs, sentences, words).
  */
@@ -19,7 +23,10 @@ public class ChunkingService {
     
     private static final Logger log = LoggerFactory.getLogger(ChunkingService.class);
     
-    @Value("${rag.chunking.size:500}")
+    // Target chunk size: 400-500 tokens (approximately 1600-2000 characters)
+    // all-MiniLM-L6-v2 max sequence length is 256 tokens, but we use larger chunks
+    // for better context and then mean-pool the embeddings
+    @Value("${rag.chunking.size:450}")
     private int chunkSize;
     
     @Value("${rag.chunking.overlap:50}")

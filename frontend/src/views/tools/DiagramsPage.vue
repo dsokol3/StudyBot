@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue'
-import { GitBranch, Loader2, Download, RefreshCw, Copy, Check, ZoomIn, ZoomOut, Maximize } from 'lucide-vue-next'
+import { GitBranch, Loader2, Download, RefreshCw, Copy, Check, ZoomIn, ZoomOut, Maximize, Clock, Workflow, Network, TreeDeciduous, Brain, ArrowRightLeft } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import StudyLayout from '@/layouts/StudyLayout.vue'
 import { useStudyTool } from '@/composables/useStudyTool'
-import type { DiagramsResult } from '@/types/study'
+import type { DiagramsResult, DiagramType } from '@/types/study'
 import mermaid from 'mermaid'
 
 const { 
@@ -27,6 +27,47 @@ const diagramContainer = ref<HTMLElement | null>(null)
 const fullscreenContainer = ref<HTMLElement | null>(null)
 const zoom = ref(1)
 const isFullscreen = ref(false)
+const selectedDiagramType = ref<DiagramType>('concept-map')
+
+// Diagram type options
+const diagramTypes = [
+  { 
+    id: 'concept-map' as DiagramType, 
+    name: 'Concept Map', 
+    description: 'Show relationships between concepts',
+    icon: Network
+  },
+  { 
+    id: 'timeline' as DiagramType, 
+    name: 'Timeline', 
+    description: 'Chronological order of events',
+    icon: Clock
+  },
+  { 
+    id: 'flowchart' as DiagramType, 
+    name: 'Flowchart', 
+    description: 'Process or decision flow',
+    icon: Workflow
+  },
+  { 
+    id: 'hierarchy' as DiagramType, 
+    name: 'Hierarchy', 
+    description: 'Top-down organizational structure',
+    icon: TreeDeciduous
+  },
+  { 
+    id: 'mind-map' as DiagramType, 
+    name: 'Mind Map', 
+    description: 'Central idea with branching topics',
+    icon: Brain
+  },
+  { 
+    id: 'sequence' as DiagramType, 
+    name: 'Sequence', 
+    description: 'Step-by-step interactions',
+    icon: ArrowRightLeft
+  }
+]
 
 // Initialize mermaid
 onMounted(() => {
@@ -70,7 +111,10 @@ const renderDiagram = async () => {
 const handleGenerate = async () => {
   // When using full notes, pass undefined to let generate() fetch from backend if needed
   const content = useFullNotes.value ? undefined : selectedContent.value
-  await generate(content, { force: true })
+  await generate(content, { 
+    force: true,
+    additionalParams: { diagramType: selectedDiagramType.value }
+  })
 }
 
 const copyMermaidCode = async () => {
@@ -174,6 +218,28 @@ const openFullscreen = async () => {
             </CardDescription>
           </CardHeader>
           <CardContent class="space-y-4">
+            <!-- Diagram Type Selection -->
+            <div class="space-y-2">
+              <label class="text-sm font-medium">Diagram Type</label>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <button
+                  v-for="dtype in diagramTypes"
+                  :key="dtype.id"
+                  :class="[
+                    'flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-left',
+                    selectedDiagramType === dtype.id 
+                      ? 'border-primary bg-primary/5' 
+                      : 'border-muted hover:border-primary/50 hover:bg-muted/50'
+                  ]"
+                  @click="selectedDiagramType = dtype.id"
+                >
+                  <component :is="dtype.icon" class="w-5 h-5" :class="selectedDiagramType === dtype.id ? 'text-primary' : 'text-muted-foreground'" />
+                  <span class="text-sm font-medium">{{ dtype.name }}</span>
+                  <span class="text-xs text-muted-foreground text-center">{{ dtype.description }}</span>
+                </button>
+              </div>
+            </div>
+            
             <div class="flex items-center gap-4">
               <Button 
                 :variant="useFullNotes ? 'default' : 'outline'"
@@ -208,11 +274,11 @@ const openFullscreen = async () => {
             >
               <template v-if="isLoading">
                 <Loader2 class="w-4 h-4 mr-2 animate-spin" />
-                Generating...
+                Generating {{ diagramTypes.find(d => d.id === selectedDiagramType)?.name }}...
               </template>
               <template v-else>
                 <RefreshCw class="w-4 h-4 mr-2" />
-                Generate Diagram
+                Generate {{ diagramTypes.find(d => d.id === selectedDiagramType)?.name }}
               </template>
             </Button>
           </CardContent>

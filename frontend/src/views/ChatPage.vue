@@ -217,7 +217,7 @@ const handleUploadComplete = () => {
             <h1 class="text-xl font-bold bg-gradient-to-r from-[#3F5EFB] to-[#FC466B] bg-clip-text text-transparent">
               AI ChatBot 
             </h1>
-            <p class="text-xs text-muted-foreground">Powered by Ollama</p>
+            <p class="text-xs text-muted-foreground">Powered by Groq</p>
           </div>
           <Button 
             variant="outline" 

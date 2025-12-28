@@ -86,7 +86,10 @@ export const useGenerationStore = defineStore('generation', () => {
           result = await studyApi.explainText(content)
           break
         case 'diagrams':
-          result = await studyApi.generateDiagram(content)
+          result = await studyApi.generateDiagram(
+            content,
+            options?.additionalParams?.diagramType as string || 'concept-map'
+          )
           break
         case 'study-plan':
           result = await studyApi.generateStudyPlan(

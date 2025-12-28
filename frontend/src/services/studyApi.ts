@@ -7,6 +7,7 @@ import type {
   EssayPromptsResult,
   ExplanationsResult,
   DiagramsResult,
+  DiagramType,
   StudyPlanResult
 } from '@/types/study'
 
@@ -143,12 +144,13 @@ export const studyApi = {
   },
   
   // Diagram Generation
-  async generateDiagram(content: string): Promise<DiagramsResult> {
+  async generateDiagram(content: string, diagramType: DiagramType = 'concept-map'): Promise<DiagramsResult> {
     return throttledRequest(async () => {
       const response = await api.post<DiagramsResult>('/generate/diagram', {
-        content
+        content,
+        diagramType
       })
-      return { ...response.data, type: 'diagrams' as const }
+      return { ...response.data, type: 'diagrams' as const, diagramType }
     })
   },
   

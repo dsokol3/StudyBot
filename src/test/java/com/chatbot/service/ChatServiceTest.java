@@ -1,7 +1,5 @@
 package com.chatbot.service;
 
-import com.chatbot.entity.Conversation;
-import com.chatbot.entity.Message;
 import com.chatbot.model.ChatMessage;
 import com.chatbot.repository.ConversationRepository;
 import com.chatbot.repository.MessageRepository;
@@ -12,9 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -37,17 +33,21 @@ class ChatServiceTest {
     private RetrievalService retrievalService;
 
     @BeforeEach
+    @SuppressWarnings("null")
     void setUp() {
         chatService = new ChatService(conversationRepository, messageRepository, retrievalService);
-        // Set local Ollama URL for testing (won't actually call API in unit tests)
-        ReflectionTestUtils.setField(chatService, "ollamaUrl", "http://localhost:11434");
-        ReflectionTestUtils.setField(chatService, "ollamaModel", "llama3");
-        ReflectionTestUtils.setField(chatService, "ollamaApiKey", "");
+        // Set Groq API configuration for testing (won't actually call API in unit tests due to mocks)
+        @SuppressWarnings("null")
+        Object service = chatService;
+        ReflectionTestUtils.setField(service, "llmApiUrl", "https://api.groq.com/openai/v1");
+        ReflectionTestUtils.setField(service, "llmModel", "llama-3.1-8b-instant");
+        ReflectionTestUtils.setField(service, "llmApiKey", "test-api-key");
+        ReflectionTestUtils.setField(service, "ragEnabled", false);
         
         // Mock repository behavior
         when(conversationRepository.findByConversationId(anyString())).thenReturn(Optional.empty());
-        when(conversationRepository.save(any(Conversation.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(conversationRepository.save(any())).thenAnswer(i -> i.getArguments()[0]);
+        when(messageRepository.save(any())).thenAnswer(i -> i.getArguments()[0]);
         when(messageRepository.findByConversationConversationIdOrderByCreatedAtAsc(anyString())).thenReturn(new ArrayList<>());
     }
 

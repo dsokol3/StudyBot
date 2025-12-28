@@ -120,8 +120,24 @@ export interface DiagramEdge {
   label?: string
 }
 
+export type DiagramType = 
+  | 'concept-map' 
+  | 'timeline' 
+  | 'flowchart' 
+  | 'hierarchy' 
+  | 'mind-map'
+  | 'sequence'
+
+export interface DiagramTypeInfo {
+  id: DiagramType
+  name: string
+  description: string
+  icon: string
+}
+
 export interface DiagramsResult {
   type: 'diagrams'
+  diagramType?: DiagramType
   mermaidCode: string
   nodes: DiagramNode[]
   edges: DiagramEdge[]
