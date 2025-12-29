@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { HelpCircle, Loader2, Download, RefreshCw, Check, X, ChevronDown } from 'lucide-vue-next'
+import { HelpCircle, Loader2, Download, Check, X, ChevronDown } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Input } from '@/components/ui/input'
 import StudyLayout from '@/layouts/StudyLayout.vue'
 import { useStudyTool } from '@/composables/useStudyTool'
 import type { QuestionsResult } from '@/types/study'
@@ -23,9 +24,17 @@ const {
 } = useStudyTool<QuestionsResult>('questions')
 
 const useFullNotes = ref(true)
+const useDifficultyDistribution = ref(false)
+const easyCount = ref(2)
+const mediumCount = ref(2)
+const hardCount = ref(1)
 const answers = ref<Map<string, number>>(new Map())
 const showResults = ref(false)
 const expandedExplanations = ref<Set<string>>(new Set())
+
+const totalQuestions = computed(() => {
+  return easyCount.value + mediumCount.value + hardCount.value
+})
 
 const score = computed(() => {
   if (!result.value) return { correct: 0, total: 0, percentage: 0 }
@@ -47,7 +56,22 @@ const score = computed(() => {
 const handleGenerate = async () => {
   // When using full notes, pass undefined to let generate() fetch from backend if needed
   const content = useFullNotes.value ? undefined : selectedContent.value
-  await generate(content, { force: true })
+  
+  // Build options object
+  const options: any = { force: true }
+  if (useDifficultyDistribution.value) {
+    options.easyCount = easyCount.value
+    options.mediumCount = mediumCount.value
+    options.hardCount = hardCount.value
+    console.log('Generating with custom difficulty:', {
+      easy: easyCount.value,
+      medium: mediumCount.value,
+      hard: hardCount.value,
+      total: totalQuestions.value
+    })
+  }
+  
+  await generate(content, options)
   answers.value.clear()
   showResults.value = false
   expandedExplanations.value.clear()
@@ -123,15 +147,17 @@ const downloadAsJSON = () => {
                 :variant="useFullNotes ? 'default' : 'outline'"
                 size="sm"
                 @click="useFullNotes = true"
+                class="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white transition-all"
               >
-                Use All Notes
+                📚 Use All Notes
               </Button>
               <Button 
                 :variant="!useFullNotes ? 'default' : 'outline'"
                 size="sm"
                 @click="useFullNotes = false"
+                class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white transition-all"
               >
-                Custom Content
+                ✏️ Custom Content
               </Button>
             </div>
             
@@ -142,6 +168,71 @@ const downloadAsJSON = () => {
               class="min-h-[150px] resize-y"
             />
             
+            <!-- Difficulty Distribution Section -->
+            <div class="space-y-3 border-t pt-4">
+              <div class="flex items-center gap-4">
+                <Button 
+                  :variant="!useDifficultyDistribution ? 'default' : 'outline'"
+                  size="sm"
+                  @click="useDifficultyDistribution = false"
+                  class="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white transition-all"
+                >
+                  🎲 Auto Difficulty
+                </Button>
+                <Button 
+                  :variant="useDifficultyDistribution ? 'default' : 'outline'"
+                  size="sm"
+                  @click="useDifficultyDistribution = true"
+                  class="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white transition-all"
+                >
+                  ⚙️ Custom Difficulty
+                </Button>
+              </div>
+              
+              <div v-if="useDifficultyDistribution" class="grid grid-cols-3 gap-3">
+                <div>
+                  <label class="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <span>✓</span> Easy Questions
+                  </label>
+                  <Input 
+                    v-model.number="easyCount" 
+                    type="number" 
+                    min="0"
+                    placeholder="0"
+                    class="mt-1 border-green-300 focus:border-green-500 dark:border-green-700 dark:focus:border-green-500"
+                  />
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
+                    <span>⚡</span> Medium Questions
+                  </label>
+                  <Input 
+                    v-model.number="mediumCount" 
+                    type="number" 
+                    min="0"
+                    placeholder="0"
+                    class="mt-1 border-yellow-300 focus:border-yellow-500 dark:border-yellow-700 dark:focus:border-yellow-500"
+                  />
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <span>🔥</span> Hard Questions
+                  </label>
+                  <Input 
+                    v-model.number="hardCount" 
+                    type="number" 
+                    min="0"
+                    placeholder="0"
+                    class="mt-1 border-red-300 focus:border-red-500 dark:border-red-700 dark:focus:border-red-500"
+                  />
+                </div>
+              </div>
+              
+              <div v-if="useDifficultyDistribution" class="text-sm text-muted-foreground">
+                Total Questions: <strong class="text-foreground">{{ totalQuestions }}</strong>
+              </div>
+            </div>
+            
             <Alert v-if="error" variant="destructive">
               <AlertDescription>{{ error }}</AlertDescription>
             </Alert>
@@ -150,14 +241,14 @@ const downloadAsJSON = () => {
               <Button 
                 :disabled="isLoading" 
                 @click="handleGenerate"
+                class="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white transition-all"
               >
                 <template v-if="isLoading">
                   <Loader2 class="w-4 h-4 mr-2 animate-spin" />
                   Generating...
                 </template>
                 <template v-else>
-                  <RefreshCw class="w-4 h-4 mr-2" />
-                  Generate Questions
+                  ✨ Generate Questions
                 </template>
               </Button>
               

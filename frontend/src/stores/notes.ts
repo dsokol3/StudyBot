@@ -49,6 +49,55 @@ export const useNotesStore = defineStore('notes', () => {
     return false
   }
   
+  // Sync documents from backend
+  async function syncFromBackend(conversationId: string = 'default') {
+    try {
+      const backendDocs = await studyApi.getAllDocuments(conversationId)
+      
+      if (!backendDocs || backendDocs.length === 0) {
+        // No documents on backend, keep local notes
+        return true
+      }
+      
+      // Merge with local notes, preferring backend as source of truth
+      const backendIds = new Set(backendDocs.map(d => d.id))
+      
+      // Remove local notes that no longer exist on backend
+      notes.value = notes.value.filter(note => backendIds.has(note.id))
+      
+      // Add or update notes from backend
+      for (const backendDoc of backendDocs) {
+        const existingIndex = notes.value.findIndex(n => n.id === backendDoc.id)
+        if (existingIndex >= 0) {
+          // Update existing note
+          notes.value[existingIndex] = { ...notes.value[existingIndex], ...backendDoc }
+        } else {
+          // Add new note from backend
+          notes.value.push(backendDoc)
+        }
+        
+        // Fetch content if completed and missing
+        if (backendDoc.status === 'COMPLETED' && !backendDoc.content) {
+          try {
+            const content = await studyApi.getDocumentContent(backendDoc.id)
+            const note = notes.value.find(n => n.id === backendDoc.id)
+            if (note) {
+              note.content = content
+            }
+          } catch (err) {
+            console.warn(`Could not fetch content for ${backendDoc.id}:`, err)
+          }
+        }
+      }
+      
+      persistNotes()
+      return true
+    } catch (error) {
+      console.warn('Could not sync documents from backend:', error)
+      return false
+    }
+  }
+  
   // Actions
   async function uploadFiles(files: File[]) {
     const results: Array<{ success: boolean; note?: UploadedNote; error?: string }> = []
@@ -162,6 +211,13 @@ export const useNotesStore = defineStore('notes', () => {
       }
     }
     isHydrated.value = true
+    
+    // Sync from backend in the background (non-blocking)
+    setTimeout(() => {
+      syncFromBackend().catch(err => {
+        console.warn('Background document sync skipped:', err)
+      })
+    }, 1000)
   }
   
   // Hydrate on store creation
@@ -178,6 +234,7 @@ export const useNotesStore = defineStore('notes', () => {
     removeNote,
     clearUploadQueue,
     clearAll,
-    hydrate
+    hydrate,
+    syncFromBackend
   }
 })

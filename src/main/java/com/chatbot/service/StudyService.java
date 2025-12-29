@@ -208,6 +208,56 @@ public class StudyService {
         return callLlmForJson(prompt, createDefaultQuestions());
     }
     
+    public Map<String, Object> generateQuestionsWithDifficulty(String content, int easyCount, int mediumCount, int hardCount) {
+        int totalCount = easyCount + mediumCount + hardCount;
+        
+        if (totalCount == 0) {
+            return generateQuestions(content, 5); // Default to 5 if all are 0
+        }
+        
+        String prompt = """
+            You are an expert educator creating practice exam questions. Create exactly %d high-quality multiple-choice questions from the following study content with the following difficulty distribution:
+            - %d EASY questions (basic recall, definitions, simple concepts)
+            - %d MEDIUM questions (application, understanding, analysis)
+            - %d HARD questions (synthesis, evaluation, complex problem-solving)
+            
+            STUDY CONTENT:
+            %s
+            
+            INSTRUCTIONS:
+            1. Create questions that test comprehension, not just memorization
+            2. Each question should have exactly 4 options (A, B, C, D)
+            3. STRICTLY follow the difficulty distribution requested
+            4. Easy questions should test basic recall and definitions
+            5. Medium questions should test understanding and application
+            6. Hard questions should test synthesis, evaluation, and critical thinking
+            7. Make wrong answers plausible but clearly incorrect
+            8. Provide clear explanations for correct answers
+            9. Cover different aspects of the content
+            10. Add a "difficulty" field to each question
+            
+            Respond with ONLY a valid JSON object (no markdown, no code blocks, just pure JSON):
+            {
+                "questions": [
+                    {
+                        "id": "q-1",
+                        "question": "Clear, specific question about the content?",
+                        "options": ["Option A - plausible answer", "Option B - correct answer", "Option C - plausible wrong answer", "Option D - plausible wrong answer"],
+                        "correctAnswer": 1,
+                        "explanation": "This is correct because [clear explanation based on the content]",
+                        "difficulty": "easy"
+                    }
+                ],
+                "totalQuestions": %d
+            }
+            
+            IMPORTANT: correctAnswer is the index (0-3) of the correct option in the options array.
+            Create exactly %d easy questions, %d medium questions, and %d hard questions (total: %d questions).
+            """.formatted(totalCount, easyCount, mediumCount, hardCount, content, totalCount, easyCount, mediumCount, hardCount, totalCount);
+        
+        return callLlmForJson(prompt, createDefaultQuestions());
+    }
+    
     public Map<String, Object> generateEssayPrompts(String content, int count) {
         String prompt = """
             You are an expert educator creating essay prompts for students. Create exactly %d thought-provoking essay prompts from the following study content.
@@ -344,7 +394,7 @@ public class StudyService {
             
             Respond with ONLY a valid JSON object (no markdown, no code blocks, just pure JSON):
             {
-                "mermaidCode": "graph LR\\n    A[1776: Declaration] --> B[1787: Constitution]\\n    B --> C[1791: Bill of Rights]\\n    C --> D[1803: Louisiana Purchase]",
+                "mermaidCode": "graph LR\\n    A[1776 Declaration] --> B[1787 Constitution]\\n    B --> C[1791 Bill of Rights]\\n    C --> D[1803 Louisiana Purchase]",
                 "nodes": [
                     {"id": "A", "label": "1776: Declaration of Independence", "type": "concept"},
                     {"id": "B", "label": "1787: Constitution Ratified", "type": "concept"}
@@ -355,8 +405,15 @@ public class StudyService {
                 "description": "Timeline showing chronological order of events"
             }
             
-            IMPORTANT: Use valid Mermaid.js graph LR (left-to-right) syntax for horizontal timeline flow.
-            Put dates/periods at the start of each node label. Use --> for arrows showing progression.
+            CRITICAL SYNTAX RULES:
+            - Use graph LR (left-to-right) for horizontal timeline
+            - Use ONLY letters A-Z for node IDs (no numbers, no special characters)
+            - DO NOT use colons (:) inside square brackets - they break Mermaid syntax
+            - Use format: A[1776 Declaration] NOT A[1776: Declaration]
+            - Separate date and text with space, not colon
+            - Use --> for arrows (no spaces around it)
+            - Each line should end with \\n
+            - Escape double quotes inside labels with backslash
             """.formatted(content);
     }
     

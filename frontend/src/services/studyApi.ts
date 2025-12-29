@@ -90,6 +90,33 @@ export const studyApi = {
     return response.data.content || ''
   },
   
+  // Get all documents metadata for a conversation
+  async getAllDocuments(conversationId: string = 'default'): Promise<UploadedNote[]> {
+    try {
+      const response = await axios.get(`/api/documents/conversation/${conversationId}`)
+      return response.data.map((doc: any) => ({
+        id: doc.id,
+        filename: doc.filename,
+        content: '', // Content needs to be fetched separately
+        contentType: doc.contentType,
+        fileSizeBytes: doc.fileSizeBytes,
+        status: doc.status,
+        chunkCount: doc.chunkCount,
+        errorMessage: doc.errorMessage,
+        createdAt: doc.createdAt,
+        processedAt: doc.processedAt,
+        uploadedAt: doc.createdAt || new Date().toISOString(),
+        size: doc.fileSizeBytes,
+        type: doc.contentType?.includes('pdf') ? 'pdf' : 
+              doc.contentType?.includes('word') ? 'docx' : 
+              doc.contentType?.includes('markdown') ? 'md' : 'txt'
+      }))
+    } catch (error) {
+      console.error('Failed to fetch documents:', error)
+      return []
+    }
+  },
+  
   // Summary Generation
   async generateSummary(content: string): Promise<SummaryResult> {
     return throttledRequest(async () => {

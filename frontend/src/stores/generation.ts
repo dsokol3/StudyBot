@@ -111,7 +111,7 @@ export const useGenerationStore = defineStore('generation', () => {
         case 'diagrams':
           result = await studyApi.generateDiagram(
             content,
-            options?.additionalParams?.diagramType as string || 'concept-map'
+            (options?.additionalParams?.diagramType as any) || 'concept-map'
           )
           break
         case 'study-plan':

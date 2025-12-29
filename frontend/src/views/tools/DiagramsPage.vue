@@ -28,6 +28,7 @@ const fullscreenContainer = ref<HTMLElement | null>(null)
 const zoom = ref(1)
 const isFullscreen = ref(false)
 const selectedDiagramType = ref<DiagramType>('concept-map')
+const diagramCache = ref<Map<DiagramType, DiagramsResult>>(new Map())
 
 // Diagram type options
 const diagramTypes = [
@@ -76,9 +77,17 @@ onMounted(() => {
     theme: 'neutral',
     securityLevel: 'loose',
     flowchart: {
-      useMaxWidth: true,
+      useMaxWidth: false,
       htmlLabels: true,
-      curve: 'basis'
+      curve: 'basis',
+      padding: 20
+    },
+    timeline: {
+      disableMulticolor: false,
+      useMaxWidth: false
+    },
+    themeVariables: {
+      fontSize: '16px'
     }
   })
 })
@@ -90,6 +99,13 @@ watch(() => result.value, async (newResult) => {
     await renderDiagram()
   }
 }, { immediate: true })
+
+// Handle diagram type changes - load from cache if available
+watch(selectedDiagramType, (newType) => {
+  if (diagramCache.value.has(newType)) {
+    result.value = diagramCache.value.get(newType) || null
+  }
+})
 
 const renderDiagram = async () => {
   if (!result.value?.mermaidCode || !diagramContainer.value) return
@@ -109,12 +125,23 @@ const renderDiagram = async () => {
 }
 
 const handleGenerate = async () => {
+  // Check if we already have this diagram type cached
+  if (diagramCache.value.has(selectedDiagramType.value)) {
+    result.value = diagramCache.value.get(selectedDiagramType.value) || null
+    return
+  }
+  
   // When using full notes, pass undefined to let generate() fetch from backend if needed
   const content = useFullNotes.value ? undefined : selectedContent.value
   await generate(content, { 
     force: true,
     additionalParams: { diagramType: selectedDiagramType.value }
   })
+  
+  // Cache the result by diagram type
+  if (result.value) {
+    diagramCache.value.set(selectedDiagramType.value, result.value)
+  }
 }
 
 const copyMermaidCode = async () => {
@@ -145,27 +172,52 @@ const downloadAsPNG = async () => {
   const svg = diagramContainer.value.querySelector('svg')
   if (!svg) return
   
+  // Clone the SVG to avoid modifying the original
+  const svgClone = svg.cloneNode(true) as SVGElement
+  
+  // Get dimensions from the SVG
+  const bbox = svg.getBBox()
+  const width = bbox.width || svg.clientWidth || 800
+  const height = bbox.height || svg.clientHeight || 600
+  
+  // Set explicit dimensions on the clone
+  svgClone.setAttribute('width', width.toString())
+  svgClone.setAttribute('height', height.toString())
+  
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   
+  // Use 2x scale for higher quality
+  const scale = 2
+  canvas.width = width * scale
+  canvas.height = height * scale
+  
   const img = new Image()
-  const svgBlob = new Blob([svg.outerHTML], { type: 'image/svg+xml;charset=utf-8' })
+  const svgString = new XMLSerializer().serializeToString(svgClone)
+  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
   const url = URL.createObjectURL(svgBlob)
   
   img.onload = () => {
-    canvas.width = img.width * 2
-    canvas.height = img.height * 2
-    ctx.scale(2, 2)
     ctx.fillStyle = 'white'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
-    ctx.drawImage(img, 0, 0)
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
     
-    const a = document.createElement('a')
-    a.href = canvas.toDataURL('image/png')
-    a.download = 'concept-diagram.png'
-    a.click()
+    canvas.toBlob((blob) => {
+      if (!blob) return
+      const downloadUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      a.download = `${selectedDiagramType.value}-diagram.png`
+      a.click()
+      URL.revokeObjectURL(downloadUrl)
+    }, 'image/png')
     
+    URL.revokeObjectURL(url)
+  }
+  
+  img.onerror = (err) => {
+    console.error('Failed to load SVG for PNG conversion:', err)
     URL.revokeObjectURL(url)
   }
   
@@ -343,11 +395,11 @@ const openFullscreen = async () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div class="overflow-auto border rounded-xl bg-white dark:bg-zinc-900 p-6">
+            <div class="overflow-auto border rounded-xl bg-white dark:bg-zinc-900 p-6 max-h-[600px]">
               <div 
                 ref="diagramContainer"
-                :style="{ transform: `scale(${zoom})`, transformOrigin: 'center top' }"
-                class="flex items-center justify-center transition-transform duration-200"
+                :style="{ transform: `scale(${zoom})`, transformOrigin: 'top left', minHeight: '400px' }"
+                class="transition-transform duration-200"
               />
             </div>
             
