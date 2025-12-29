@@ -1,6 +1,6 @@
 package com.chatbot.rag;
 
-import com.chatbot.embedding.LocalEmbeddingService;
+import com.chatbot.embedding.GeminiEmbeddingService;
 import com.chatbot.rag.RagService.DocumentChunk;
 import com.chatbot.rag.RagService.RagResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +32,7 @@ import static org.mockito.Mockito.when;
 class RagServiceTest {
     
     @Mock
-    private LocalEmbeddingService embeddingService;
+    private GeminiEmbeddingService embeddingService;
     
     @Mock
     private RestTemplateBuilder restTemplateBuilder;
@@ -107,8 +107,8 @@ class RagServiceTest {
     @Test
     @DisplayName("Should handle empty chunk list gracefully")
     void testGenerateResponseWithEmptyChunks() throws Exception {
-        // Mock embedding generation
-        float[] queryEmbedding = new float[384];
+        // Mock embedding generation (Gemini uses 768 dimensions)
+        float[] queryEmbedding = new float[768];
         when(embeddingService.generateEmbedding(anyString())).thenReturn(queryEmbedding);
         
         // Empty chunk list

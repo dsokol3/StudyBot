@@ -28,8 +28,8 @@ import java.util.*;
  * Chat Service - handles conversation processing with RAG support.
  * 
  * UPDATED: Now uses:
- * - LOCAL embeddings for RAG (via EmbeddingService -> LocalEmbeddingService)
- * - GROQ ONLY for text generation (no Ollama dependency)
+ * - GOOGLE GEMINI for embeddings (via EmbeddingService -> GeminiEmbeddingService)
+ * - GROQ API for text generation (llama-3.1-8b-instant)
  * 
  * Response labeling:
  * - "📚 Answer from uploaded notes:" when context is found
@@ -74,7 +74,7 @@ public class ChatService {
         log.info("╔══════════════════════════════════════════════════════════════╗");
         log.info("║  🤖 ChatService initialized                                  ║");
         log.info("║  Text Generation: Groq API (llama-3.1-8b-instant)           ║");
-        log.info("║  Embeddings: Local HuggingFace (all-MiniLM-L6-v2)           ║");
+        log.info("║  Embeddings: Google Gemini (text-embedding-004)             ║");
         log.info("╚══════════════════════════════════════════════════════════════╝");
     }
     

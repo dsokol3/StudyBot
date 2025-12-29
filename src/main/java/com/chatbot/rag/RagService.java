@@ -1,7 +1,7 @@
 package com.chatbot.rag;
 
-import com.chatbot.embedding.LocalEmbeddingService;
-import com.chatbot.embedding.LocalEmbeddingService.EmbeddingException;
+import com.chatbot.embedding.GeminiEmbeddingService;
+import com.chatbot.embedding.GeminiEmbeddingService.EmbeddingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,13 +18,13 @@ import java.util.*;
  * RAG (Retrieval-Augmented Generation) Service.
  * 
  * Features:
- * - Uses LOCAL embeddings for vector search (no external API)
+ * - Uses Google Gemini embeddings for vector search
  * - Uses GROQ ONLY for text generation
  * - Implements fallback logic when no relevant context found
  * - Labels responses with source: "from notes" or "from AI"
  * 
  * Flow:
- * 1. User query → embed with local model
+ * 1. User query → embed with Gemini API
  * 2. Search vector store for similar chunks
  * 3. If similar chunks found (score > threshold):
  *    - Send context + query to Groq
@@ -55,7 +55,7 @@ public class RagService {
     @Value("${rag.retrieval.similarity-threshold:0.5}")
     private double similarityThreshold;
     
-    private final LocalEmbeddingService embeddingService;
+    private final GeminiEmbeddingService embeddingService;
     private final RestTemplate restTemplate;
     
     // Labels for response source
@@ -63,7 +63,7 @@ public class RagService {
     public static final String LABEL_FROM_AI = "🤖 Answer not in uploaded notes, generated from AI:";
     
     public RagService(
-            LocalEmbeddingService embeddingService,
+            GeminiEmbeddingService embeddingService,
             RestTemplateBuilder restTemplateBuilder) {
         this.embeddingService = embeddingService;
         this.restTemplate = restTemplateBuilder

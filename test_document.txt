@@ -1,0 +1,43 @@
+# Test Document for ChatBot Application
+
+## Introduction
+This is a test document to verify the ChatBot application is working correctly with Google Gemini embeddings and Groq API for text generation.
+
+## Key Concepts
+
+### Machine Learning
+Machine learning is a subset of artificial intelligence that focuses on building systems that can learn from data. The main types of machine learning are:
+- Supervised learning: Learning from labeled data
+- Unsupervised learning: Finding patterns in unlabeled data
+- Reinforcement learning: Learning through trial and error
+
+### Natural Language Processing
+Natural Language Processing (NLP) is a field of AI that focuses on the interaction between computers and human language. Key NLP tasks include:
+- Text classification
+- Named entity recognition
+- Sentiment analysis
+- Machine translation
+
+### Vector Embeddings
+Vector embeddings are dense representations of words, sentences, or documents in a continuous vector space. They capture semantic meaning and relationships between text elements. Common embedding models include:
+- Word2Vec
+- GloVe
+- BERT
+- GPT embeddings
+- Google Gemini embeddings (text-embedding-004)
+
+## Testing Requirements
+1. Document upload should process this text file
+2. Embeddings should be generated using Google Gemini API
+3. Vector search should find relevant chunks
+4. Groq API should generate responses based on the document content
+5. Study tools (summaries, flashcards, quizzes) should work correctly
+
+## Important Facts
+- The Gemini embedding model produces 768-dimensional vectors
+- The Groq API uses llama-3.1-8b-instant for fast inference
+- PostgreSQL with pgvector extension stores the embeddings
+- The system supports various document formats: PDF, TXT, MD, DOCX
+
+## Conclusion
+This test document contains sufficient information to verify all features of the ChatBot application are working correctly.

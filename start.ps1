@@ -65,7 +65,8 @@ $envVars = @(
     "`$env:JAVA_HOME = '$env:JAVA_HOME'",
     "`$env:LLM_API_URL = '$env:LLM_API_URL'",
     "`$env:LLM_API_KEY = '$env:LLM_API_KEY'",
-    "`$env:LLM_MODEL = '$env:LLM_MODEL'"
+    "`$env:LLM_MODEL = '$env:LLM_MODEL'",
+    "`$env:GEMINI_API_KEY = '$env:GEMINI_API_KEY'"
 ) -join "; "
 
 # Start Backend

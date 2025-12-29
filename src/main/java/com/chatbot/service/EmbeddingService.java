@@ -1,6 +1,6 @@
 package com.chatbot.service;
 
-import com.chatbot.embedding.LocalEmbeddingService;
+import com.chatbot.embedding.GeminiEmbeddingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,38 +11,39 @@ import java.util.List;
 /**
  * Service for generating text embeddings.
  * 
- * UPDATED: Now uses LOCAL HuggingFace embeddings (all-MiniLM-L6-v2)
- * instead of Ollama API. This provides:
- * - Faster inference (no network latency)
- * - No dependency on external services
+ * UPDATED: Now uses Google Gemini Embeddings API (text-embedding-004)
+ * This provides:
+ * - High-quality semantic embeddings (768 dimensions)
+ * - Fast cloud inference
+ * - No local model management required
  * - Consistent embeddings across restarts (with caching)
  * 
- * The embedding dimension is 384 (all-MiniLM-L6-v2 default).
+ * The embedding dimension is 768 (Gemini text-embedding-004).
  */
 @Service
 public class EmbeddingService {
     
     private static final Logger log = LoggerFactory.getLogger(EmbeddingService.class);
     
-    @Value("${rag.embedding.dimension:384}")
+    @Value("${rag.embedding.dimension:768}")
     private int embeddingDimension;
     
-    private final LocalEmbeddingService localEmbeddingService;
+    private final GeminiEmbeddingService geminiEmbeddingService;
     
-    public EmbeddingService(LocalEmbeddingService localEmbeddingService) {
-        this.localEmbeddingService = localEmbeddingService;
+    public EmbeddingService(GeminiEmbeddingService geminiEmbeddingService) {
+        this.geminiEmbeddingService = geminiEmbeddingService;
         log.info("╔══════════════════════════════════════════════════════════════╗");
-        log.info("║  📦 EmbeddingService initialized with LOCAL embeddings       ║");
-        log.info("║  Model: all-MiniLM-L6-v2 (384 dimensions)                    ║");
-        log.info("║  Mode: CPU inference (no external API)                       ║");
+        log.info("║  📦 EmbeddingService initialized with Gemini API             ║");
+        log.info("║  Model: text-embedding-004 (768 dimensions)                  ║");
+        log.info("║  Mode: Cloud API (Google Gemini)                             ║");
         log.info("╚══════════════════════════════════════════════════════════════╝");
     }
     
     /**
-     * Generate embedding for a single text using local model.
+     * Generate embedding for a single text using Gemini API.
      * 
      * @param text The text to embed
-     * @return Float array of embedding values (384 dimensions)
+     * @return Float array of embedding values (768 dimensions)
      * @throws EmbeddingException if embedding generation fails
      */
     public float[] generateEmbedding(String text) throws EmbeddingException {
@@ -51,19 +52,19 @@ public class EmbeddingService {
         }
         
         try {
-            log.debug("🔄 Generating local embedding for text of length {}", text.length());
+            log.debug("🔄 Generating Gemini embedding for text of length {}", text.length());
             long startTime = System.currentTimeMillis();
             
-            float[] embedding = localEmbeddingService.generateEmbedding(text);
+            float[] embedding = geminiEmbeddingService.generateEmbedding(text);
             
             long elapsed = System.currentTimeMillis() - startTime;
-            log.debug("✅ Local embedding generated in {} ms (dimension: {})", 
+            log.debug("✅ Gemini embedding generated in {} ms (dimension: {})", 
                       elapsed, embedding.length);
             
             return embedding;
             
-        } catch (LocalEmbeddingService.EmbeddingException e) {
-            throw new EmbeddingException("Local embedding failed: " + e.getMessage(), e);
+        } catch (GeminiEmbeddingService.EmbeddingException e) {
+            throw new EmbeddingException("Gemini embedding failed: " + e.getMessage(), e);
         }
     }
     
@@ -75,18 +76,18 @@ public class EmbeddingService {
      * @throws EmbeddingException if embedding generation fails
      */
     public List<float[]> generateEmbeddings(List<String> texts) throws EmbeddingException {
-        log.info("📦 Generating local embeddings for {} texts...", texts.size());
+        log.info("📦 Generating Gemini embeddings for {} texts...", texts.size());
         long startTime = System.currentTimeMillis();
         
         try {
-            List<float[]> embeddings = localEmbeddingService.generateEmbeddings(texts);
+            List<float[]> embeddings = geminiEmbeddingService.generateEmbeddings(texts);
             
             long elapsed = System.currentTimeMillis() - startTime;
-            log.info("✅ Generated {} local embeddings in {} ms", embeddings.size(), elapsed);
+            log.info("✅ Generated {} Gemini embeddings in {} ms", embeddings.size(), elapsed);
             
             return embeddings;
             
-        } catch (LocalEmbeddingService.EmbeddingException e) {
+        } catch (GeminiEmbeddingService.EmbeddingException e) {
             throw new EmbeddingException("Batch embedding failed: " + e.getMessage(), e);
         }
     }
@@ -96,32 +97,32 @@ public class EmbeddingService {
      * Format: [0.1, 0.2, 0.3, ...]
      */
     public String embeddingToVectorString(float[] embedding) {
-        return localEmbeddingService.embeddingToVectorString(embedding);
+        return geminiEmbeddingService.embeddingToVectorString(embedding);
     }
     
     /**
      * Compute SHA-256 hash for content (used for caching).
      */
     public String computeContentHash(String content) {
-        return localEmbeddingService.computeHash(content);
+        return geminiEmbeddingService.computeHash(content);
     }
     
     /**
      * Check if embedding exists in cache for given content hash.
      */
     public boolean hasCachedEmbedding(String contentHash) {
-        return localEmbeddingService.hasCachedEmbedding(contentHash);
+        return geminiEmbeddingService.hasCachedEmbedding(contentHash);
     }
     
     public int getEmbeddingDimension() {
-        return LocalEmbeddingService.EMBEDDING_DIMENSION;
+        return GeminiEmbeddingService.EMBEDDING_DIMENSION;
     }
     
     /**
-     * Check if the local model is loaded and ready.
+     * Check if the Gemini API is configured and ready.
      */
     public boolean isModelReady() {
-        return localEmbeddingService.isModelLoaded();
+        return geminiEmbeddingService.isModelLoaded();
     }
     
     public static class EmbeddingException extends Exception {
