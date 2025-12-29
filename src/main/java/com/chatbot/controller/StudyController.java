@@ -74,11 +74,26 @@ public class StudyController {
             String content = (String) request.get("content");
             int count = request.containsKey("count") ? ((Number) request.get("count")).intValue() : 10;
             
+            // Check for difficulty distribution
+            Integer easyCount = request.containsKey("easyCount") ? ((Number) request.get("easyCount")).intValue() : null;
+            Integer mediumCount = request.containsKey("mediumCount") ? ((Number) request.get("mediumCount")).intValue() : null;
+            Integer hardCount = request.containsKey("hardCount") ? ((Number) request.get("hardCount")).intValue() : null;
+            
             if (content == null || content.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Content is required"));
             }
             
-            Map<String, Object> result = studyService.generateFlashcards(content, count);
+            Map<String, Object> result;
+            if (easyCount != null || mediumCount != null || hardCount != null) {
+                // Use difficulty distribution
+                result = studyService.generateFlashcardsWithDifficulty(content, 
+                    easyCount != null ? easyCount : 0, 
+                    mediumCount != null ? mediumCount : 0, 
+                    hardCount != null ? hardCount : 0);
+            } else {
+                // Use default count
+                result = studyService.generateFlashcards(content, count);
+            }
             result.put("type", "flashcards");
             return ResponseEntity.ok(result);
         } catch (Exception e) {

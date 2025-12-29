@@ -101,12 +101,25 @@ export const studyApi = {
   },
   
   // Flashcards Generation
-  async generateFlashcards(content: string, count?: number): Promise<FlashcardsResult> {
+  async generateFlashcards(
+    content: string, 
+    count?: number,
+    options?: { easyCount?: number; mediumCount?: number; hardCount?: number }
+  ): Promise<FlashcardsResult> {
     return throttledRequest(async () => {
-      const response = await api.post<FlashcardsResult>('/generate/flashcards', {
-        content,
-        count: count || 10
-      })
+      const requestData: any = { content }
+      
+      // If difficulty distribution is provided, use it
+      if (options?.easyCount !== undefined || options?.mediumCount !== undefined || options?.hardCount !== undefined) {
+        requestData.easyCount = options.easyCount || 0
+        requestData.mediumCount = options.mediumCount || 0
+        requestData.hardCount = options.hardCount || 0
+      } else {
+        // Otherwise use total count
+        requestData.count = count || 10
+      }
+      
+      const response = await api.post<FlashcardsResult>('/generate/flashcards', requestData)
       return { ...response.data, type: 'flashcards' as const }
     })
   },

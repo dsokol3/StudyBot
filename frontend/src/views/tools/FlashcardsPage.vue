@@ -8,6 +8,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import StudyLayout from '@/layouts/StudyLayout.vue'
 import { useStudyTool } from '@/composables/useStudyTool'
 import type { FlashcardsResult } from '@/types/study'
@@ -22,6 +24,10 @@ const {
 } = useStudyTool<FlashcardsResult>('flashcards')
 
 const useFullNotes = ref(true)
+const useDifficultyDistribution = ref(false)
+const easyCount = ref(3)
+const mediumCount = ref(4)
+const hardCount = ref(3)
 const currentIndex = ref(0)
 const isFlipped = ref(false)
 const studyMode = ref(false)
@@ -36,10 +42,29 @@ const progress = computed(() => {
   return ((currentIndex.value + 1) / result.value.cards.length) * 100
 })
 
+const totalCards = computed(() => {
+  return easyCount.value + mediumCount.value + hardCount.value
+})
+
 const handleGenerate = async () => {
   // When using full notes, pass undefined to let generate() fetch from backend if needed
   const content = useFullNotes.value ? undefined : selectedContent.value
-  await generate(content, { force: true })
+  
+  // Build options object
+  const options: any = { force: true }
+  if (useDifficultyDistribution.value) {
+    options.easyCount = easyCount.value
+    options.mediumCount = mediumCount.value
+    options.hardCount = hardCount.value
+    console.log('Generating with custom difficulty:', {
+      easy: easyCount.value,
+      medium: mediumCount.value,
+      hard: hardCount.value,
+      total: totalCards.value
+    })
+  }
+  
+  await generate(content, options)
   currentIndex.value = 0
   isFlipped.value = false
 }
@@ -124,20 +149,22 @@ const downloadAsAnki = () => {
             </CardDescription>
           </CardHeader>
           <CardContent class="space-y-4">
-            <div class="flex items-center gap-4">
+            <div class="flex flex-wrap items-center gap-3">
               <Button 
                 :variant="useFullNotes ? 'default' : 'outline'"
                 size="sm"
                 @click="useFullNotes = true"
+                class="transition-all hover:scale-105 shadow-sm"
               >
-                Use All Notes
+                📚 Use All Notes
               </Button>
               <Button 
                 :variant="!useFullNotes ? 'default' : 'outline'"
                 size="sm"
                 @click="useFullNotes = false"
+                class="transition-all hover:scale-105 shadow-sm"
               >
-                Custom Content
+                ✏️ Custom Content
               </Button>
             </div>
             
@@ -148,31 +175,111 @@ const downloadAsAnki = () => {
               class="min-h-[150px] resize-y"
             />
             
+            <!-- Difficulty Distribution Controls -->
+            <div class="space-y-4 pt-4 border-t">
+              <div class="flex flex-wrap items-center gap-3">
+                <Button 
+                  :variant="!useDifficultyDistribution ? 'default' : 'outline'"
+                  size="sm"
+                  @click="useDifficultyDistribution = false"
+                  class="transition-all hover:scale-105 shadow-sm"
+                >
+                  🎲 Auto Difficulty
+                </Button>
+                <Button 
+                  :variant="useDifficultyDistribution ? 'default' : 'outline'"
+                  size="sm"
+                  @click="useDifficultyDistribution = true"
+                  class="transition-all hover:scale-105 shadow-sm"
+                >
+                  ⚙️ Custom Difficulty
+                </Button>
+              </div>
+              
+              <div v-if="useDifficultyDistribution" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div class="space-y-2 p-4 rounded-lg border-2 border-green-200 dark:border-green-900 bg-gradient-to-br from-green-50 to-transparent dark:from-green-950/20 transition-all hover:shadow-md">
+                    <Label for="easy-count" class="flex items-center gap-2 font-semibold">
+                      <Badge :class="getDifficultyColor('easy')" class="text-xs">Easy</Badge>
+                      Cards
+                    </Label>
+                    <Input 
+                      id="easy-count"
+                      v-model.number="easyCount"
+                      type="number"
+                      min="0"
+                      max="50"
+                      class="w-full text-lg font-semibold border-green-300 focus:border-green-500"
+                    />
+                  </div>
+                  
+                  <div class="space-y-2 p-4 rounded-lg border-2 border-yellow-200 dark:border-yellow-900 bg-gradient-to-br from-yellow-50 to-transparent dark:from-yellow-950/20 transition-all hover:shadow-md">
+                    <Label for="medium-count" class="flex items-center gap-2 font-semibold">
+                      <Badge :class="getDifficultyColor('medium')" class="text-xs">Medium</Badge>
+                      Cards
+                    </Label>
+                    <Input 
+                      id="medium-count"
+                      v-model.number="mediumCount"
+                      type="number"
+                      min="0"
+                      max="50"
+                      class="w-full text-lg font-semibold border-yellow-300 focus:border-yellow-500"
+                    />
+                  </div>
+                  
+                  <div class="space-y-2 p-4 rounded-lg border-2 border-red-200 dark:border-red-900 bg-gradient-to-br from-red-50 to-transparent dark:from-red-950/20 transition-all hover:shadow-md">
+                    <Label for="hard-count" class="flex items-center gap-2 font-semibold">
+                      <Badge :class="getDifficultyColor('hard')" class="text-xs">Hard</Badge>
+                      Cards
+                    </Label>
+                    <Input 
+                      id="hard-count"
+                      v-model.number="hardCount"
+                      type="number"
+                      min="0"
+                      max="50"
+                      class="w-full text-lg font-semibold border-red-300 focus:border-red-500"
+                    />
+                  </div>
+                </div>
+                
+                <div class="flex items-center justify-center gap-2 p-3 rounded-lg bg-gradient-to-r from-violet-100 to-purple-100 dark:from-violet-950/30 dark:to-purple-950/30 border border-violet-200 dark:border-violet-800">
+                  <span class="text-sm font-medium text-muted-foreground">Total cards:</span>
+                  <Badge variant="secondary" class="text-lg font-bold px-3 py-1">{{ totalCards }}</Badge>
+                </div>
+              </div>
+            </div>
+            
             <Alert v-if="error" variant="destructive">
               <AlertDescription>{{ error }}</AlertDescription>
             </Alert>
             
             <div class="flex items-center gap-2">
               <Button 
+                size="lg"
                 :disabled="isLoading" 
                 @click="handleGenerate"
+                class="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all hover:scale-105"
               >
                 <template v-if="isLoading">
-                  <Loader2 class="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 class="w-5 h-5 mr-2 animate-spin" />
                   Generating...
                 </template>
                 <template v-else>
-                  <RefreshCw class="w-4 h-4 mr-2" />
-                  Generate Flashcards
+                  <RefreshCw class="w-5 h-5 mr-2" />
+                  ✨ Generate Flashcards
                 </template>
               </Button>
               
               <Button 
                 v-if="result" 
                 variant="outline"
+                size="lg"
                 @click="studyMode = true"
+                class="shadow-md hover:shadow-lg transition-all hover:scale-105"
               >
-                Study Mode
+                🎯 Study Mode
               </Button>
             </div>
           </CardContent>

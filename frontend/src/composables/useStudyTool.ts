@@ -61,7 +61,13 @@ export function useStudyTool<T extends GenerationResult>(toolType: ToolType) {
   
   async function generate(
     content?: string,
-    options?: { force?: boolean; additionalParams?: Record<string, unknown> }
+    options?: { 
+      force?: boolean; 
+      easyCount?: number;
+      mediumCount?: number;
+      hardCount?: number;
+      additionalParams?: Record<string, unknown> 
+    }
   ): Promise<T | null> {
     isLoading.value = true
     error.value = null
@@ -84,10 +90,19 @@ export function useStudyTool<T extends GenerationResult>(toolType: ToolType) {
         return null
       }
       
+      // Merge difficulty params into additionalParams
+      const additionalParams = { ...(options?.additionalParams || {}) }
+      if (options?.easyCount !== undefined) additionalParams.easyCount = options.easyCount
+      if (options?.mediumCount !== undefined) additionalParams.mediumCount = options.mediumCount
+      if (options?.hardCount !== undefined) additionalParams.hardCount = options.hardCount
+      
       const generatedResult = await generationStore.generate<T>(
         toolType, 
         inputContent,
-        options
+        {
+          force: options?.force,
+          additionalParams
+        }
       )
       
       result.value = generatedResult

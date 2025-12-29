@@ -120,6 +120,58 @@ public class StudyService {
         return callLlmForJson(prompt, createDefaultFlashcards());
     }
     
+    public Map<String, Object> generateFlashcardsWithDifficulty(String content, int easyCount, int mediumCount, int hardCount) {
+        int totalCount = easyCount + mediumCount + hardCount;
+        
+        if (totalCount == 0) {
+            return generateFlashcards(content, 10); // Default to 10 if all are 0
+        }
+        
+        String prompt = """
+            You are an expert educator creating flashcards for effective studying. Create exactly %d high-quality flashcards from the following study content with the following difficulty distribution:
+            - %d EASY cards (basic definitions, simple concepts)
+            - %d MEDIUM cards (relationships between concepts, applications)
+            - %d HARD cards (complex analysis, critical thinking)
+            
+            STUDY CONTENT:
+            %s
+            
+            INSTRUCTIONS:
+            1. Create flashcards that test understanding of key concepts, definitions, and relationships
+            2. Front of card should be a clear question or term
+            3. Back of card should be a complete, accurate answer or definition
+            4. STRICTLY follow the difficulty distribution requested
+            5. Easy cards should test basic recall and simple definitions
+            6. Medium cards should test understanding and application of concepts
+            7. Hard cards should test synthesis, analysis, and critical thinking
+            8. Focus on the most important information students need to memorize
+            9. Make questions specific and answers concise but complete
+            
+            Respond with ONLY a valid JSON object (no markdown, no code blocks, just pure JSON):
+            {
+                "cards": [
+                    {
+                        "id": "card-1",
+                        "front": "What is [specific concept/term from the content]?",
+                        "back": "Complete, accurate answer that explains the concept clearly",
+                        "difficulty": "easy"
+                    },
+                    {
+                        "id": "card-2", 
+                        "front": "Explain the relationship between [concept A] and [concept B]",
+                        "back": "Clear explanation of the relationship",
+                        "difficulty": "medium"
+                    }
+                ],
+                "totalCards": %d
+            }
+            
+            Create exactly %d easy cards, %d medium cards, and %d hard cards (total: %d cards).
+            """.formatted(totalCount, easyCount, mediumCount, hardCount, content, totalCount, easyCount, mediumCount, hardCount, totalCount);
+        
+        return callLlmForJson(prompt, createDefaultFlashcards());
+    }
+    
     public Map<String, Object> generateQuestions(String content, int count) {
         String prompt = """
             You are an expert educator creating practice exam questions. Create exactly %d high-quality multiple-choice questions from the following study content.

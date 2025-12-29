@@ -52,7 +52,15 @@ export const useGenerationStore = defineStore('generation', () => {
     content: string,
     options?: { force?: boolean; additionalParams?: Record<string, unknown> }
   ): Promise<T> {
-    const cacheKey = `${toolType}:${hashContent(content)}`
+    // Include difficulty params in cache key for flashcards
+    let cacheKeySuffix = ''
+    if (toolType === 'flashcards' && options?.additionalParams) {
+      const { easyCount, mediumCount, hardCount } = options.additionalParams
+      if (easyCount !== undefined || mediumCount !== undefined || hardCount !== undefined) {
+        cacheKeySuffix = `:${easyCount || 0}-${mediumCount || 0}-${hardCount || 0}`
+      }
+    }
+    const cacheKey = `${toolType}:${hashContent(content)}${cacheKeySuffix}`
     
     // Check cache first (unless forced)
     if (!options?.force && cache.value.has(cacheKey)) {
@@ -74,7 +82,22 @@ export const useGenerationStore = defineStore('generation', () => {
           result = await studyApi.generateSummary(content)
           break
         case 'flashcards':
-          result = await studyApi.generateFlashcards(content)
+          // Check if difficulty distribution is provided
+          if (options?.additionalParams?.easyCount !== undefined || 
+              options?.additionalParams?.mediumCount !== undefined || 
+              options?.additionalParams?.hardCount !== undefined) {
+            result = await studyApi.generateFlashcards(
+              content, 
+              undefined,
+              {
+                easyCount: options.additionalParams.easyCount as number,
+                mediumCount: options.additionalParams.mediumCount as number,
+                hardCount: options.additionalParams.hardCount as number
+              }
+            )
+          } else {
+            result = await studyApi.generateFlashcards(content)
+          }
           break
         case 'questions':
           result = await studyApi.generateQuestions(content)
