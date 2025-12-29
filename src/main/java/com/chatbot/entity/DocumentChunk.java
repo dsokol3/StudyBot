@@ -34,9 +34,8 @@ public class DocumentChunk {
     @Column(name = "token_count", nullable = false)
     private Integer tokenCount;
     
-    // Embedding stored as float array. Column definition is configurable
-    // so we can use Postgres pgvector in production and a TEXT column for H2 in dev.
-    @Column(name = "embedding", columnDefinition = "TEXT")
+    // Embedding stored as float array using pgvector for similarity search
+    @Column(name = "embedding", columnDefinition = "vector(384)")
     @Convert(converter = FloatArrayToStringConverter.class)
     private float[] embedding;
     
