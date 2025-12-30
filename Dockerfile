@@ -5,7 +5,8 @@ FROM maven:3.9.4-eclipse-temurin-21 AS build
 WORKDIR /workspace
 
 # Copy only what we need to take advantage of build cache
-COPY pom.xml mvnw .mvn/ ./
+# The repository may not include the Maven wrapper (`mvnw`); use the image's `mvn` instead.
+COPY pom.xml ./
 COPY src ./src
 
 # Build the application (skip tests for faster builds; change if desired)
