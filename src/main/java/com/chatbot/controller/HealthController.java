@@ -10,6 +10,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class HealthController {
     @GetMapping("/health")
     public ResponseEntity<String> health() {
-        return ResponseEntity.ok("OK");
+        // Try a lightweight DB check to ensure DB is up (optional, comment out if not desired)
+        try {
+            // If you want to check DB, inject a JdbcTemplate and run a simple query here
+            // jdbcTemplate.queryForObject("SELECT 1", Integer.class);
+            return ResponseEntity.ok("OK");
+        } catch (Exception e) {
+            return ResponseEntity.status(503).body("DB unavailable");
+        }
     }
 }
