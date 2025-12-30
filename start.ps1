@@ -30,7 +30,7 @@ if (Test-Path $envFile) {
 }
 
 # Set Java Home
-$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot"
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-21"
 
 # Kill any existing processes on our ports
 Write-Host "Checking for existing processes..." -ForegroundColor Gray

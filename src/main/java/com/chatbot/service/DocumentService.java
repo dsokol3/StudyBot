@@ -49,18 +49,21 @@ public class DocumentService {
     private final DocumentParserService parserService;
     private final ChunkingService chunkingService;
     private final EmbeddingService embeddingService;
+    private final UvMarkdownExtractor uvMarkdownExtractor;
     
     public DocumentService(
             DocumentRepository documentRepository,
             DocumentChunkRepository chunkRepository,
             DocumentParserService parserService,
             ChunkingService chunkingService,
-            EmbeddingService embeddingService) {
+            EmbeddingService embeddingService,
+            UvMarkdownExtractor uvMarkdownExtractor) {
         this.documentRepository = documentRepository;
         this.chunkRepository = chunkRepository;
         this.parserService = parserService;
         this.chunkingService = chunkingService;
         this.embeddingService = embeddingService;
+        this.uvMarkdownExtractor = uvMarkdownExtractor;
     }
     
     /**
@@ -135,16 +138,15 @@ public class DocumentService {
             document.setStatus(DocumentStatus.PROCESSING);
             documentRepository.save(document);
             
-            // Extract text
+            // Extract text - try UV first, then fall back to Tika
             Path filePath = Path.of(storagePath, document.getSafeFilename());
-            String text;
-            try (InputStream is = Files.newInputStream(filePath)) {
-                text = parserService.extractText(is, document.getOriginalFilename());
-            }
+            String text = extractTextFromFile(filePath, document.getOriginalFilename());
             
             if (text == null || text.isBlank()) {
                 throw new DocumentParseException("No text content extracted", null);
             }
+            
+            log.info("Extracted {} characters from document {}", text.length(), documentId);
             
             // Chunk text
             List<TextChunk> chunks = chunkingService.chunkText(text);
@@ -264,6 +266,37 @@ public class DocumentService {
             // Delete from database (chunks will cascade delete)
             documentRepository.delete(document);
             log.info("Deleted document: {}", documentId);
+        }
+    }
+    
+    /**
+     * Extract text from a file using UV markdown extractor with Tika fallback.
+     * 
+     * @param filePath Path to the file
+     * @param originalFilename Original filename for logging
+     * @return Extracted text content
+     * @throws DocumentParseException if extraction fails
+     * @throws IOException if file operations fail
+     */
+    private String extractTextFromFile(Path filePath, String originalFilename) 
+            throws DocumentParseException, IOException {
+        
+        // Try UV markdown extractor first
+        try {
+            log.info("Attempting UV markdown extraction for: {}", originalFilename);
+            String markdown = uvMarkdownExtractor.extractMarkdown(filePath);
+            log.info("Successfully extracted markdown using UV for: {}", originalFilename);
+            return markdown;
+        } catch (UvMarkdownExtractor.MarkdownExtractionException e) {
+            log.warn("UV extraction failed for {}: {}. Falling back to Tika.", 
+                     originalFilename, e.getMessage());
+            
+            // Fall back to Tika extraction
+            try (InputStream is = Files.newInputStream(filePath)) {
+                String text = parserService.extractText(is, originalFilename);
+                log.info("Successfully extracted text using Tika for: {}", originalFilename);
+                return text;
+            }
         }
     }
     
