@@ -7,8 +7,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
-import jakarta.persistence.Convert;
-import com.chatbot.converter.FloatArrayToStringConverter;
 
 @Entity
 @Table(name = "document_chunks")
@@ -35,8 +33,7 @@ public class DocumentChunk {
     private Integer tokenCount;
     
     // Embedding stored as float array using pgvector for similarity search
-    @Column(name = "embedding", columnDefinition = "vector(384)")
-    @Convert(converter = FloatArrayToStringConverter.class)
+    @Column(name = "embedding", columnDefinition = "vector(768)")
     private float[] embedding;
     
     @Column(name = "created_at", nullable = false)
