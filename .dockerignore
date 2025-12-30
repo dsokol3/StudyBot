@@ -1,0 +1,11 @@
+target
+.git
+.env
+.env.*
+uploads
+node_modules
+frontend/node_modules
+**/logs
+*.log
+*.tmp
+/.mvn/wrapper/maven-wrapper.jar
