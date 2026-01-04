@@ -19,6 +19,11 @@ public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, UU
     @Query("SELECT c.content FROM DocumentChunk c WHERE c.document.id = :documentId ORDER BY c.chunkOrder ASC")
     List<String> findContentByDocumentIdOrderByChunkOrderAsc(@Param("documentId") UUID documentId);
     
+    /**
+     * Find all chunks for a document (used for in-memory similarity when pgvector unavailable).
+     */
+    List<DocumentChunk> findByDocumentIdOrderByChunkOrderAsc(@Param("documentId") UUID documentId);
+    
     void deleteByDocumentId(UUID documentId);
     
     long countByDocumentId(UUID documentId);

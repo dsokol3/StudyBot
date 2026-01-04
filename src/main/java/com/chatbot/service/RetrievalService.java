@@ -1,5 +1,6 @@
 package com.chatbot.service;
 
+import com.chatbot.config.PostgresInitializer;
 import com.chatbot.entity.Document;
 import com.chatbot.entity.Document.DocumentStatus;
 import com.chatbot.entity.DocumentChunk;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,8 +23,10 @@ import java.util.stream.Collectors;
  * Service for retrieving relevant document chunks based on semantic similarity.
  * Implements the retrieval part of RAG (Retrieval-Augmented Generation).
  * 
- * In dev mode (H2 database), falls back to returning all document chunks
- * since H2 doesn't support pgvector similarity search.
+ * Supports multiple retrieval strategies:
+ * - pgvector similarity search (when available)
+ * - In-memory similarity calculation (fallback when pgvector unavailable)
+ * - Dev mode fallback (returns all chunks)
  */
 @Service
 public class RetrievalService {
@@ -60,6 +64,13 @@ public class RetrievalService {
     }
     
     /**
+     * Check if pgvector is available for native similarity search.
+     */
+    private boolean isPgvectorAvailable() {
+        return PostgresInitializer.isPgvectorAvailable();
+    }
+    
+    /**
      * Find relevant document chunks for a query within a conversation's documents.
      * 
      * @param query The user's query
@@ -73,6 +84,20 @@ public class RetrievalService {
             return findAllChunksForConversation(conversationId);
         }
         
+        // If pgvector is available, use native vector search
+        if (isPgvectorAvailable()) {
+            return findRelevantChunksWithPgvector(query, conversationId);
+        } else {
+            // Fallback: Load chunks and calculate similarity in memory
+            log.info("pgvector unavailable: Using in-memory similarity calculation");
+            return findRelevantChunksInMemory(query, conversationId);
+        }
+    }
+    
+    /**
+     * Find relevant chunks using pgvector native similarity search.
+     */
+    private List<RetrievedChunk> findRelevantChunksWithPgvector(String query, String conversationId) {
         try {
             // Generate embedding for the query
             float[] queryEmbedding = embeddingService.generateEmbedding(query);
@@ -86,12 +111,58 @@ public class RetrievalService {
                 topK
             );
             
-            log.info("Found {} relevant chunks for query in conversation {}", 
+            log.info("Found {} relevant chunks for query in conversation {} (pgvector)", 
                      chunks.size(), conversationId);
             
             return chunks.stream()
                 .map(this::toRetrievedChunk)
                 .collect(Collectors.toList());
+                
+        } catch (EmbeddingException e) {
+            log.error("Failed to generate query embedding: {}", e.getMessage());
+            return List.of();
+        }
+    }
+    
+    /**
+     * Find relevant chunks by loading all chunks and calculating similarity in memory.
+     * This is used when pgvector is not available (e.g., Render free tier).
+     */
+    private List<RetrievedChunk> findRelevantChunksInMemory(String query, String conversationId) {
+        try {
+            // Generate embedding for the query
+            float[] queryEmbedding = embeddingService.generateEmbedding(query);
+            
+            // Get all completed documents for this conversation
+            List<Document> documents = documentRepository.findByConversationIdOrderByCreatedAtDesc(conversationId);
+            List<ScoredChunk> scoredChunks = new ArrayList<>();
+            
+            for (Document doc : documents) {
+                if (doc.getStatus() == DocumentStatus.COMPLETED) {
+                    // Get all chunks for this document
+                    List<DocumentChunk> chunks = chunkRepository.findByDocumentIdOrderByChunkOrderAsc(doc.getId());
+                    
+                    for (DocumentChunk chunk : chunks) {
+                        float[] chunkEmbedding = chunk.getEmbedding();
+                        if (chunkEmbedding != null && chunkEmbedding.length > 0) {
+                            double similarity = cosineSimilarity(queryEmbedding, chunkEmbedding);
+                            scoredChunks.add(new ScoredChunk(chunk, similarity));
+                        }
+                    }
+                }
+            }
+            
+            // Sort by similarity (highest first) and take top K
+            List<RetrievedChunk> relevantChunks = scoredChunks.stream()
+                .sorted(Comparator.comparingDouble(ScoredChunk::score).reversed())
+                .limit(topK)
+                .map(sc -> toRetrievedChunk(sc.chunk()))
+                .collect(Collectors.toList());
+            
+            log.info("Found {} relevant chunks for query in conversation {} (in-memory)", 
+                     relevantChunks.size(), conversationId);
+            
+            return relevantChunks;
                 
         } catch (EmbeddingException e) {
             log.error("Failed to generate query embedding: {}", e.getMessage());
@@ -145,6 +216,21 @@ public class RetrievalService {
             return List.of();
         }
         
+        // If pgvector is available, use native vector search
+        if (isPgvectorAvailable()) {
+            return findRelevantChunksGlobalWithPgvector(query);
+        } else {
+            // Fallback: This would require loading ALL chunks from ALL documents
+            // For now, return empty list to avoid performance issues
+            log.info("pgvector unavailable: Global search not supported in fallback mode");
+            return List.of();
+        }
+    }
+    
+    /**
+     * Find relevant chunks globally using pgvector.
+     */
+    private List<RetrievedChunk> findRelevantChunksGlobalWithPgvector(String query) {
         try {
             float[] queryEmbedding = embeddingService.generateEmbedding(query);
             String vectorString = embeddingService.embeddingToVectorString(queryEmbedding);
@@ -155,7 +241,7 @@ public class RetrievalService {
                 topK
             );
             
-            log.info("Found {} relevant chunks globally for query", chunks.size());
+            log.info("Found {} relevant chunks globally for query (pgvector)", chunks.size());
             
             return chunks.stream()
                 .map(this::toRetrievedChunk)
@@ -165,6 +251,31 @@ public class RetrievalService {
             log.error("Failed to generate query embedding: {}", e.getMessage());
             return List.of();
         }
+    }
+    
+    /**
+     * Calculate cosine similarity between two vectors.
+     */
+    private double cosineSimilarity(float[] a, float[] b) {
+        if (a.length != b.length) {
+            return 0.0;
+        }
+        
+        double dotProduct = 0.0;
+        double normA = 0.0;
+        double normB = 0.0;
+        
+        for (int i = 0; i < a.length; i++) {
+            dotProduct += a[i] * b[i];
+            normA += a[i] * a[i];
+            normB += b[i] * b[i];
+        }
+        
+        if (normA == 0.0 || normB == 0.0) {
+            return 0.0;
+        }
+        
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
     }
     
     /**
@@ -247,4 +358,9 @@ public class RetrievalService {
         String documentName,
         int chunkOrder
     ) {}
+    
+    /**
+     * Internal record for scoring chunks during in-memory similarity calculation.
+     */
+    private record ScoredChunk(DocumentChunk chunk, double score) {}
 }
