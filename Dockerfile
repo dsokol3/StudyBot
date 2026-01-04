@@ -1,7 +1,7 @@
-## Multi-stage Dockerfile for building the ChatBot backend (Java 21, Maven)
+## Multi-stage Dockerfile for building the ChatBot backend (Java 17, Maven)
 
-# Build stage: use Maven with Java 21 to build the jar
-FROM maven:3.9.4-eclipse-temurin-21 AS build
+# Build stage: use Maven with Java 17 to build the jar
+FROM maven:3.9.4-eclipse-temurin-17 AS build
 WORKDIR /workspace
 
 # Copy only what we need to take advantage of build cache
@@ -13,7 +13,7 @@ COPY src ./src
 RUN mvn -B -DskipTests package
 
 # Runtime stage: slim JRE
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 # Copy runnable jar from build stage
