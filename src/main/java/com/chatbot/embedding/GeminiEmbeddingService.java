@@ -80,9 +80,17 @@ public class GeminiEmbeddingService {
         log.info("║  Max Retries: {}                                             ║", maxRetries);
         log.info("╚══════════════════════════════════════════════════════════════╝");
         
+        // Enhanced logging to debug environment variable issues
+        String envVarValue = System.getenv("GEMINI_API_KEY");
+        log.info("🔍 Debug: GEMINI_API_KEY env var = {}", 
+            envVarValue == null ? "null" : (envVarValue.isBlank() ? "blank" : "present (length: " + envVarValue.length() + ")"));
+        log.info("🔍 Debug: Injected apiKey = {}", 
+            apiKey == null ? "null" : (apiKey.isBlank() ? "blank" : "present (length: " + apiKey.length() + ")"));
+        
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("⚠️  WARNING: Gemini API key is not configured!");
-            log.warn("⚠️  Please set 'gemini.api.key' in application.properties");
+            log.warn("⚠️  Please set 'GEMINI_API_KEY' environment variable");
+            log.warn("⚠️  Or set 'gemini.api.key' in application.properties");
         } else {
             log.info("✅ Gemini API key configured (length: {})", apiKey.length());
         }
