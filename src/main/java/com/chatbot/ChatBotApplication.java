@@ -86,10 +86,11 @@ public class ChatBotApplication {
                 }
             }
 
-            // Build JDBC URL with SSL for Render
+            // Build JDBC URL with SSL for Render, disable for localhost
+            String sslMode = host.equals("localhost") ? "disable" : "require";
             String jdbcUrl = String.format(
-                "jdbc:postgresql://%s:%d/%s?sslmode=require",
-                host, port, database
+                "jdbc:postgresql://%s:%d/%s?sslmode=%s",
+                host, port, database, sslMode
             );
 
             // Set as system properties (Spring Boot picks these up)
@@ -107,7 +108,7 @@ public class ChatBotApplication {
             System.out.println("  Database: " + database);
             System.out.println("  Username: " + username);
             System.out.println("  Password: " + (password != null ? "[SET]" : "[NOT SET]"));
-            System.out.println("  JDBC URL: jdbc:postgresql://" + host + ":" + port + "/" + database + "?sslmode=require");
+            System.out.println("  JDBC URL: " + jdbcUrl);
             
         } catch (Exception e) {
             System.err.println("ERROR parsing DATABASE_URL: " + e.getMessage());
