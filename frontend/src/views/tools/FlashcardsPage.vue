@@ -19,7 +19,6 @@ const {
   error, 
   result, 
   selectedContent, 
-  notesContent,
   generate
 } = useStudyTool<FlashcardsResult>('flashcards')
 

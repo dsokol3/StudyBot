@@ -17,7 +17,7 @@ const {
   error, 
   result, 
   selectedContent, 
-  notesContent,
+
   generate
 } = useStudyTool<ExplanationsResult>('explanations')
 

@@ -17,7 +17,6 @@ const {
   error, 
   result, 
   selectedContent, 
-  notesContent,
   generate
 } = useStudyTool<EssayPromptsResult>('essay-prompts')
 

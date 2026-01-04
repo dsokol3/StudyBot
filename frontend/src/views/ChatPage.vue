@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
-import { Send, Loader2, Plus, Trash2, FileText, Upload, X, MessageSquare } from 'lucide-vue-next'
+import { Send, Loader2, Plus, Trash2, FileText, X, MessageSquare } from 'lucide-vue-next'
 import { chatApi } from '@/services/api'
 import type { Message, ChatResponse, Citation } from '@/types'
 import StudyLayout from '@/layouts/StudyLayout.vue'

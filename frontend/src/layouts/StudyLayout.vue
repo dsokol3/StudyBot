@@ -17,11 +17,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { useNotesStore } from '@/stores/notes'
 
 const router = useRouter()
 const route = useRoute()
-const notesStore = useNotesStore()
 
 const tools = [
   { id: 'summary', name: 'Summary', icon: BookOpen, route: '/tools/summary' },

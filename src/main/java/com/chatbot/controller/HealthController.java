@@ -45,10 +45,11 @@ public class HealthController {
     }
     
     /**
-     * Root path - provides basic status and API documentation.
+     * API documentation endpoint (not root path to allow static file serving).
+     * Provides basic status and API documentation.
      */
-    @GetMapping("/")
-    public ResponseEntity<Map<String, Object>> root() {
+    @GetMapping("/api")
+    public ResponseEntity<Map<String, Object>> apiInfo() {
         return ResponseEntity.ok(Map.of(
             "status", "UP",
             "message", "ChatBot API is running",
