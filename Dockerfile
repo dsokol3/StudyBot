@@ -1,7 +1,7 @@
 ## Multi-stage Dockerfile for building the ChatBot backend (Java 21, Maven) with Vue.js frontend
 
-# Build frontend stage
-FROM node:18 AS frontend-build
+# Build frontend stage - Node 22 required for Vite 7.x and other modern packages
+FROM node:22-alpine AS frontend-build
 WORKDIR /frontend
 COPY frontend/package*.json ./
 RUN npm install && npm audit fix || true
