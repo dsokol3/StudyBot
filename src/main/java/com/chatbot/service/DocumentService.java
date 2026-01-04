@@ -130,8 +130,9 @@ public class DocumentService {
     }
     
     /**
-     * Process document synchronously - extract text, chunk, and generate embeddings.
+     * Process document synchronously - extract text, chunk, and optionally generate embeddings.
      * This method processes the document in the same thread to avoid @Async self-invocation issues.
+     * Embeddings are optional - if the Gemini API key is not configured, chunks are saved without embeddings.
      */
     @Transactional
     public void processDocumentSync(UUID documentId) {
@@ -163,16 +164,31 @@ public class DocumentService {
             List<TextChunk> chunks = chunkingService.chunkText(text);
             log.info("Document {} chunked into {} pieces", documentId, chunks.size());
             
-            // Generate embeddings and save chunks
+            // Check if embedding service is available
+            boolean embeddingsEnabled = embeddingService.isModelReady();
+            if (!embeddingsEnabled) {
+                log.warn("Embedding service not available (API key not configured). Saving chunks without embeddings.");
+            }
+            
+            // Generate embeddings (if available) and save chunks
             for (TextChunk chunk : chunks) {
-                float[] embedding = embeddingService.generateEmbedding(chunk.content());
-                
                 DocumentChunk chunkEntity = new DocumentChunk();
                 chunkEntity.setDocument(document);
                 chunkEntity.setChunkOrder(chunk.order());
                 chunkEntity.setContent(chunk.content());
                 chunkEntity.setTokenCount(chunk.tokenCount());
-                chunkEntity.setEmbedding(embedding);
+                
+                // Try to generate embeddings, but don't fail if unavailable
+                if (embeddingsEnabled) {
+                    try {
+                        float[] embedding = embeddingService.generateEmbedding(chunk.content());
+                        chunkEntity.setEmbedding(embedding);
+                    } catch (EmbeddingException e) {
+                        log.warn("Failed to generate embedding for chunk {}: {}. Saving without embedding.", 
+                                 chunk.order(), e.getMessage());
+                        // Continue without embedding - text search still works
+                    }
+                }
                 
                 chunkRepository.save(chunkEntity);
             }
@@ -183,9 +199,10 @@ public class DocumentService {
             document.setProcessedAt(LocalDateTime.now());
             documentRepository.save(document);
             
-            log.info("Document {} processed successfully with {} chunks", documentId, chunks.size());
+            log.info("Document {} processed successfully with {} chunks (embeddings: {})", 
+                     documentId, chunks.size(), embeddingsEnabled ? "enabled" : "disabled");
             
-        } catch (DocumentParseException | EmbeddingException | IOException e) {
+        } catch (DocumentParseException | IOException e) {
             log.error("Failed to process document {}: {}", documentId, e.getMessage(), e);
             document.setStatus(DocumentStatus.FAILED);
             document.setErrorMessage(e.getMessage());
