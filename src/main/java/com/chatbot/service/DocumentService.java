@@ -106,10 +106,21 @@ public class DocumentService {
             document = documentRepository.save(document);
             log.info("Saved document: {} ({})", originalFilename, document.getId());
             
-            // Trigger async processing
-            processDocumentAsync(document.getId());
+            // Process document synchronously for now (async self-invocation doesn't work with Spring proxies)
+            // This ensures the document is processed before returning to the client
+            final UUID docId = document.getId();
+            try {
+                processDocumentSync(docId);
+            } catch (Exception e) {
+                log.error("Document processing failed for {}: {}", docId, e.getMessage());
+                // Don't throw - the document is saved, just mark as failed
+                document.setStatus(DocumentStatus.FAILED);
+                document.setErrorMessage(e.getMessage());
+                documentRepository.save(document);
+            }
             
-            return document;
+            // Re-fetch to get updated status
+            return documentRepository.findById(docId).orElse(document);
             
         } catch (IOException e) {
             throw new DocumentUploadException("Failed to save file: " + e.getMessage(), e);
@@ -119,12 +130,12 @@ public class DocumentService {
     }
     
     /**
-     * Process document asynchronously - extract text, chunk, and generate embeddings.
+     * Process document synchronously - extract text, chunk, and generate embeddings.
+     * This method processes the document in the same thread to avoid @Async self-invocation issues.
      */
-    @Async
     @Transactional
-    public void processDocumentAsync(UUID documentId) {
-        log.info("Starting async processing for document: {}", documentId);
+    public void processDocumentSync(UUID documentId) {
+        log.info("Starting sync processing for document: {}", documentId);
         
         @SuppressWarnings("null")
         Document document = documentRepository.findById(documentId).orElse(null);
@@ -175,11 +186,23 @@ public class DocumentService {
             log.info("Document {} processed successfully with {} chunks", documentId, chunks.size());
             
         } catch (DocumentParseException | EmbeddingException | IOException e) {
-            log.error("Failed to process document {}: {}", documentId, e.getMessage());
+            log.error("Failed to process document {}: {}", documentId, e.getMessage(), e);
             document.setStatus(DocumentStatus.FAILED);
             document.setErrorMessage(e.getMessage());
             documentRepository.save(document);
+            throw new RuntimeException("Document processing failed: " + e.getMessage(), e);
         }
+    }
+    
+    /**
+     * Process document asynchronously - extract text, chunk, and generate embeddings.
+     * NOTE: This method should only be called from a different bean, not from within this class,
+     * otherwise Spring's @Async proxy won't intercept the call.
+     */
+    @Async
+    @Transactional
+    public void processDocumentAsync(UUID documentId) {
+        processDocumentSync(documentId);
     }
     
     /**
