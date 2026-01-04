@@ -3,6 +3,18 @@ import { ref, computed } from 'vue'
 import type { UploadedNote, UploadProgress } from '@/types/study'
 import { studyApi } from '@/services/studyApi'
 
+function getFileTypeFromFilename(filename: string): 'pdf' | 'txt' | 'md' | 'docx' {
+  const extension = filename.split('.').pop()?.toLowerCase()
+  switch (extension) {
+    case 'pdf': return 'pdf'
+    case 'docx':
+    case 'doc': return 'docx'
+    case 'md':
+    case 'markdown': return 'md'
+    default: return 'txt'
+  }
+}
+
 export const useNotesStore = defineStore('notes', () => {
   // State
   const notes = ref<UploadedNote[]>([])
@@ -70,10 +82,23 @@ export const useNotesStore = defineStore('notes', () => {
         const existingIndex = notes.value.findIndex(n => n.id === backendDoc.id)
         if (existingIndex >= 0) {
           // Update existing note
-          notes.value[existingIndex] = { ...notes.value[existingIndex], ...backendDoc }
+          notes.value[existingIndex] = { 
+            ...notes.value[existingIndex], 
+            ...backendDoc,
+            // Ensure required properties
+            type: backendDoc.type || getFileTypeFromFilename(backendDoc.filename) || 'txt',
+            size: backendDoc.size || backendDoc.fileSizeBytes || 0,
+            uploadedAt: backendDoc.uploadedAt || backendDoc.createdAt || new Date().toISOString()
+          }
         } else {
           // Add new note from backend
-          notes.value.push(backendDoc)
+          notes.value.push({
+            ...backendDoc,
+            // Ensure required properties
+            type: backendDoc.type || getFileTypeFromFilename(backendDoc.filename) || 'txt',
+            size: backendDoc.size || backendDoc.fileSizeBytes || 0,
+            uploadedAt: backendDoc.uploadedAt || backendDoc.createdAt || new Date().toISOString()
+          })
         }
         
         // Fetch content if completed and missing
@@ -116,8 +141,16 @@ export const useNotesStore = defineStore('notes', () => {
       try {
         const note = await studyApi.uploadNotes(file)
         
+        // Ensure the note has all required properties
+        const completeNote: UploadedNote = {
+          ...note,
+          type: note.type || getFileTypeFromFilename(note.filename) || 'txt',
+          size: note.size || note.fileSizeBytes || file.size,
+          uploadedAt: note.uploadedAt || new Date().toISOString()
+        }
+        
         // Add to notes immediately
-        notes.value.push(note)
+        notes.value.push(completeNote)
         
         // Update queue to processing
         uploadQueue.value.set(uploadId, {
@@ -172,7 +205,14 @@ export const useNotesStore = defineStore('notes', () => {
   }
   
   function addLocalNote(note: UploadedNote) {
-    notes.value.push(note)
+    // Ensure the note has all required properties
+    const completeNote: UploadedNote = {
+      ...note,
+      type: note.type || getFileTypeFromFilename(note.filename) || 'txt',
+      size: note.size || note.fileSizeBytes || 0,
+      uploadedAt: note.uploadedAt || new Date().toISOString()
+    }
+    notes.value.push(completeNote)
     persistNotes()
   }
   
@@ -205,7 +245,14 @@ export const useNotesStore = defineStore('notes', () => {
     const stored = localStorage.getItem('study-notes')
     if (stored) {
       try {
-        notes.value = JSON.parse(stored)
+        const parsedNotes = JSON.parse(stored)
+        // Migrate old notes to ensure they have required properties
+        notes.value = parsedNotes.map((note: any) => ({
+          ...note,
+          type: note.type || getFileTypeFromFilename(note.filename) || 'txt',
+          size: note.size || note.fileSizeBytes || 0,
+          uploadedAt: note.uploadedAt || note.createdAt || new Date().toISOString()
+        }))
       } catch {
         localStorage.removeItem('study-notes')
       }

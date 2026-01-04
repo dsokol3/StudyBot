@@ -79,7 +79,9 @@ export const useGenerationStore = defineStore('generation', () => {
       
       switch (toolType) {
         case 'summary':
+          console.log('Generating summary with content length:', content.length)
           result = await studyApi.generateSummary(content)
+          console.log('Summary API response:', result)
           break
         case 'flashcards':
           // Check if difficulty distribution is provided

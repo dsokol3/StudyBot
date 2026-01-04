@@ -217,7 +217,7 @@ const formatFileSize = (bytes: number): string => {
                   <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium truncate">{{ note.filename }}</p>
                     <p class="text-xs text-muted-foreground">
-                      {{ formatFileSize(note.size) }} • {{ note.type.toUpperCase() }}
+                      {{ formatFileSize(note.size) }} • {{ (note.type || 'FILE').toUpperCase() }}
                     </p>
                   </div>
                   <Button 

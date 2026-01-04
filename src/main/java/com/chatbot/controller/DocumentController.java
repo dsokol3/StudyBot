@@ -117,11 +117,12 @@ public class DocumentController {
     /**
      * Get all document contents for a conversation (for study tools).
      */
-    @GetMapping("/conversation/{conversationId}/content")
-    public ResponseEntity<?> getAllDocumentContents(@PathVariable String conversationId) {
-        String content = documentService.getAllDocumentContents(conversationId);
-        return ResponseEntity.ok(Map.of("content", content));
-    }
+    // @GetMapping("/conversation/{conversationId}/content")
+    // public ResponseEntity<?> getAllDocumentContents(@PathVariable String conversationId) {
+    //     // String content = documentService.getAllDocumentContents(conversationId);
+    //     // return ResponseEntity.ok(Map.of("content", content));
+    //     return ResponseEntity.ok("test response");
+    // }
 
     /**
      * Delete a document.

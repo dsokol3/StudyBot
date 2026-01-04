@@ -32,12 +32,12 @@ const isFlipped = ref(false)
 const studyMode = ref(false)
 
 const currentCard = computed(() => {
-  if (!result.value || !result.value.cards.length) return null
+  if (!result.value || !result.value.cards || result.value.cards.length === 0) return null
   return result.value.cards[currentIndex.value]
 })
 
 const progress = computed(() => {
-  if (!result.value) return 0
+  if (!result.value || !result.value.cards) return 0
   return ((currentIndex.value + 1) / result.value.cards.length) * 100
 })
 
@@ -69,7 +69,7 @@ const handleGenerate = async () => {
 }
 
 const nextCard = () => {
-  if (!result.value) return
+  if (!result.value || !result.value.cards) return
   if (currentIndex.value < result.value.cards.length - 1) {
     currentIndex.value++
     isFlipped.value = false
@@ -88,7 +88,7 @@ const flipCard = () => {
 }
 
 const shuffleCards = () => {
-  if (!result.value) return
+  if (!result.value || !result.value.cards) return
   result.value.cards.sort(() => Math.random() - 0.5)
   currentIndex.value = 0
   isFlipped.value = false
@@ -109,7 +109,7 @@ const getDifficultyColor = (difficulty: string) => {
 }
 
 const downloadAsAnki = () => {
-  if (!result.value) return
+  if (!result.value || !result.value.cards) return
   
   // Create Anki-compatible format (tab-separated front/back)
   const text = result.value.cards.map(card => `${card.front}\t${card.back}`).join('\n')
@@ -298,7 +298,7 @@ const downloadAsAnki = () => {
         </Card>
         
         <!-- Flashcard Study View -->
-        <div v-else-if="result && result.cards.length > 0">
+        <div v-else-if="result && result.cards && result.cards.length > 0">
           <!-- Study Mode Controls -->
           <div v-if="studyMode" class="flex items-center justify-between">
             <Button variant="ghost" @click="studyMode = false">
@@ -320,7 +320,7 @@ const downloadAsAnki = () => {
           <!-- Progress Bar -->
           <div class="space-y-2">
             <div class="flex justify-between text-sm text-muted-foreground">
-              <span>Card {{ currentIndex + 1 }} of {{ result.cards.length }}</span>
+              <span>Card {{ currentIndex + 1 }} of {{ result.cards?.length || 0 }}</span>
               <span>{{ Math.round(progress) }}% complete</span>
             </div>
             <Progress :model-value="progress" class="h-2" />
@@ -385,7 +385,7 @@ const downloadAsAnki = () => {
             <Button 
               variant="outline"
               size="lg"
-              :disabled="currentIndex === result.cards.length - 1"
+              :disabled="!result?.cards || currentIndex === result.cards.length - 1"
               @click="nextCard"
             >
               Next
@@ -398,13 +398,13 @@ const downloadAsAnki = () => {
             <CardHeader>
               <CardTitle class="text-lg">All Flashcards</CardTitle>
               <CardDescription>
-                {{ result.cards.length }} cards generated
+                {{ result.cards?.length || 0 }} cards generated
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div 
-                  v-for="(card, index) in result.cards" 
+                  v-for="(card, index) in result.cards || []" 
                   :key="card.id"
                   :class="[
                     'p-4 rounded-lg border cursor-pointer transition-colors',

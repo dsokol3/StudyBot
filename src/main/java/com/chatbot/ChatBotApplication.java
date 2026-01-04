@@ -19,7 +19,7 @@ import java.net.URI;
  *    - DB_HOST, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD, DB_SSLMODE
  */
 @SpringBootApplication
-@EnableAsync
+//@EnableAsync
 public class ChatBotApplication {
     
     public static void main(String[] args) {
