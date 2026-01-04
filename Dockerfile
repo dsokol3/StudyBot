@@ -4,7 +4,7 @@
 FROM node:18 AS frontend-build
 WORKDIR /frontend
 COPY frontend/package*.json ./
-RUN npm install
+RUN npm install && npm audit fix || true
 COPY frontend/ ./
 RUN npm run build
 
