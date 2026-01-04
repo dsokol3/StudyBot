@@ -23,8 +23,16 @@ import java.net.URI;
 public class ChatBotApplication {
     
     public static void main(String[] args) {
+        System.out.println("=== ChatBot Application Starting ===");
+        System.out.println("Java Version: " + System.getProperty("java.version"));
+        System.out.println("PORT env: " + System.getenv("PORT"));
+        
         // Parse DATABASE_URL if provided (Render format)
         parseDatabaseUrl();
+        
+        // Log final database configuration
+        logDatabaseConfig();
+        
         SpringApplication.run(ChatBotApplication.class, args);
     }
 
@@ -34,8 +42,18 @@ public class ChatBotApplication {
      */
     private static void parseDatabaseUrl() {
         String databaseUrl = System.getenv("DATABASE_URL");
+        
+        System.out.println("=== Database URL Parsing ===");
+        System.out.println("DATABASE_URL env present: " + (databaseUrl != null && !databaseUrl.isEmpty()));
+        
         if (databaseUrl == null || databaseUrl.isEmpty()) {
-            return; // Use individual DB_* env vars instead
+            System.out.println("No DATABASE_URL found, checking individual DB_* env vars...");
+            System.out.println("  DB_HOST: " + (System.getenv("DB_HOST") != null ? System.getenv("DB_HOST") : "(not set, using default)"));
+            System.out.println("  DB_PORT: " + (System.getenv("DB_PORT") != null ? System.getenv("DB_PORT") : "(not set, using 5432)"));
+            System.out.println("  DB_NAME: " + (System.getenv("DB_NAME") != null ? System.getenv("DB_NAME") : "(not set, using default)"));
+            System.out.println("  DB_USERNAME: " + (System.getenv("DB_USERNAME") != null ? "set" : "(not set)"));
+            System.out.println("  DB_PASSWORD: " + (System.getenv("DB_PASSWORD") != null ? "set" : "(not set)"));
+            return;
         }
 
         try {
@@ -83,12 +101,30 @@ public class ChatBotApplication {
                 System.setProperty("spring.datasource.password", password);
             }
 
-            System.out.println("Parsed DATABASE_URL:");
-            System.out.println("  JDBC URL: jdbc:postgresql://" + host + ":" + port + "/" + database + "?sslmode=require");
+            System.out.println("Successfully parsed DATABASE_URL:");
+            System.out.println("  Host: " + host);
+            System.out.println("  Port: " + port);
+            System.out.println("  Database: " + database);
             System.out.println("  Username: " + username);
+            System.out.println("  Password: " + (password != null ? "[SET]" : "[NOT SET]"));
+            System.out.println("  JDBC URL: jdbc:postgresql://" + host + ":" + port + "/" + database + "?sslmode=require");
             
         } catch (Exception e) {
-            System.err.println("Failed to parse DATABASE_URL: " + e.getMessage());
+            System.err.println("ERROR parsing DATABASE_URL: " + e.getMessage());
+            e.printStackTrace();
         }
+        System.out.println("=== End Database URL Parsing ===");
+    }
+    
+    /**
+     * Logs the final database configuration that will be used.
+     */
+    private static void logDatabaseConfig() {
+        System.out.println("=== Final Database Configuration ===");
+        String url = System.getProperty("spring.datasource.url");
+        String user = System.getProperty("spring.datasource.username");
+        System.out.println("spring.datasource.url: " + (url != null ? url : "(will use application.properties default)"));
+        System.out.println("spring.datasource.username: " + (user != null ? user : "(will use application.properties default)"));
+        System.out.println("=== End Final Database Configuration ===");
     }
 }

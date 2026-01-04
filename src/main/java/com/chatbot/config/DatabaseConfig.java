@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Primary;
 
 /**
@@ -30,12 +31,18 @@ public class DatabaseConfig {
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseConfig.class);
 
+    /**
+     * Creates HikariCP DataSource AFTER pgvector extension is initialized.
+     * The @DependsOn ensures pgvector extension exists before Hibernate runs.
+     */
     @Bean
     @Primary
+    @DependsOn("pgvectorExtensionInitializer")
     @ConfigurationProperties("spring.datasource.hikari")
     public HikariDataSource dataSource(DataSourceProperties properties) {
-        log.info("Configuring HikariCP datasource for: {}", 
-                maskJdbcUrl(properties.getUrl()));
+        log.info("=== Creating HikariCP DataSource ===");
+        log.info("JDBC URL: {}", maskJdbcUrl(properties.getUrl()));
+        log.info("Username: {}", properties.getUsername());
         
         HikariDataSource dataSource = properties.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
@@ -54,6 +61,7 @@ public class DatabaseConfig {
         dataSource.setConnectionTestQuery("SELECT 1");
         
         log.info("HikariCP configured - app will start even if DB is temporarily unavailable");
+        log.info("=== End HikariCP DataSource Creation ===");
         return dataSource;
     }
 
