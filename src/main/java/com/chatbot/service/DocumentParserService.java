@@ -80,17 +80,25 @@ public class DocumentParserService {
     
     /**
      * Check if a file type is supported for text extraction.
+     * Uses startsWith for text types to handle charset variations like 'text/plain; charset=utf-8'
      */
     public boolean isSupportedType(String contentType) {
-        return contentType != null && (
-            contentType.equals("application/pdf") ||
-            contentType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document") ||
-            contentType.equals("application/msword") ||
-            contentType.equals("text/plain") ||
-            contentType.equals("text/markdown") ||
-            contentType.equals("text/html") ||
-            contentType.equals("application/rtf")
-        );
+        if (contentType == null) {
+            return false;
+        }
+        
+        // Normalize content type (remove charset and extra parameters)
+        String normalizedType = contentType.split(";")[0].trim().toLowerCase();
+        
+        return normalizedType.equals("application/pdf") ||
+               normalizedType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document") ||
+               normalizedType.equals("application/msword") ||
+               normalizedType.equals("text/plain") ||
+               normalizedType.equals("text/markdown") ||
+               normalizedType.equals("text/x-markdown") ||
+               normalizedType.equals("text/html") ||
+               normalizedType.equals("application/rtf") ||
+               normalizedType.equals("application/octet-stream"); // Fallback for unknown types - let Tika detect
     }
     
     public static class DocumentParseException extends Exception {
