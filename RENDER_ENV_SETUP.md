@@ -1,5 +1,28 @@
 # Render Environment Variable Setup Guide
 
+## Required Environment Variables on Render
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SPRING_PROFILES_ACTIVE` | **Yes** | Set to `prod` to use PostgreSQL |
+| `DATABASE_URL` | **Yes** | PostgreSQL connection URL (auto-provided by Render if you link a database) |
+| `GEMINI_API_KEY` | **Yes** | Google Gemini API key for embeddings |
+| `LLM_API_KEY` | **Yes** | Groq API key for text generation |
+| `LLM_API_URL` | No | Defaults to `https://api.groq.com/openai/v1` |
+| `LLM_MODEL` | No | Defaults to `llama-3.1-8b-instant` |
+
+## Quick Setup
+
+1. In Render Dashboard, go to your **Web Service** → **Environment** tab
+2. Add these environment variables:
+   - `SPRING_PROFILES_ACTIVE` = `prod`
+   - `GEMINI_API_KEY` = Your Gemini API key
+   - `LLM_API_KEY` = Your Groq API key
+3. Link a PostgreSQL database (Render auto-sets `DATABASE_URL`)
+4. Deploy!
+
+---
+
 ## Critical Steps for Gemini API Key on Render
 
 ### 1. Add Environment Variable
