@@ -62,19 +62,28 @@ public class StudyService {
             STUDY CONTENT TO SUMMARIZE:
             %s
             
-            INSTRUCTIONS:
+            CRITICAL REQUIREMENTS:
             1. Read and understand the entire content thoroughly
             2. Identify the main topics, themes, and concepts
             3. Create a clear, organized summary that captures all essential information
-            4. Extract 5-7 key points that a student must remember
+            4. Extract exactly 5-7 key points that a student must remember
             5. Make the summary educational and easy to understand
             
-            Respond with ONLY a valid JSON object (no markdown, no code blocks, just pure JSON):
+            YOUR RESPONSE MUST BE VALID JSON WITH EXACTLY THIS STRUCTURE:
             {
                 "summary": "A comprehensive 2-3 paragraph summary that explains the main concepts clearly. Include important details, relationships between ideas, and any critical information a student needs to understand the material.",
                 "keyPoints": ["Key point 1 - be specific and informative", "Key point 2", "Key point 3", "Key point 4", "Key point 5"],
-                "wordCount": <number of words in the summary>
+                "wordCount": 150
             }
+            
+            RULES:
+            - "summary" must be a string with the full summary text
+            - "keyPoints" must be an array of exactly 5-7 strings
+            - "wordCount" must be a number representing the word count of the summary
+            - Do NOT include any other fields
+            - Do NOT use nested objects or sections
+            - Do NOT include any text outside the JSON object
+            - Respond with ONLY the JSON object, nothing else
             """.formatted(content);
         
         return callLlmForJson(prompt, createDefaultSummary());
@@ -666,7 +675,7 @@ public class StudyService {
             requestBody.put("model", llmModel);
             requestBody.put("messages", messages);
             requestBody.put("temperature", 0.7);
-            requestBody.put("max_tokens", 2048);
+            requestBody.put("max_tokens", 4096);
             
             // Groq supports JSON mode
             Map<String, String> responseFormat = new HashMap<>();
@@ -717,21 +726,15 @@ public class StudyService {
                 log.debug("Raw response: {}", jsonResponse.substring(0, Math.min(300, jsonResponse.length())));
                 
                 // Clean up response - remove markdown code blocks if present
-                jsonResponse = jsonResponse.trim();
-                if (jsonResponse.startsWith("```json")) {
-                    jsonResponse = jsonResponse.substring(7);
-                }
-                if (jsonResponse.startsWith("```")) {
-                    jsonResponse = jsonResponse.substring(3);
-                }
-                if (jsonResponse.endsWith("```")) {
-                    jsonResponse = jsonResponse.substring(0, jsonResponse.length() - 3);
-                }
-                jsonResponse = jsonResponse.trim();
+                jsonResponse = cleanJsonResponse(jsonResponse);
                 
                 try {
                     Map<String, Object> parsed = objectMapper.readValue(jsonResponse, new TypeReference<Map<String, Object>>() {});
-                    log.info("✅ JSON parsed successfully");
+                    log.info("✅ JSON parsed successfully with keys: {}", parsed.keySet());
+                    
+                    // Post-process the result to ensure proper formatting
+                    parsed = postProcessResult(parsed, fallback);
+                    
                     return parsed;
                 } catch (Exception parseEx) {
                     log.error("❌ Failed to parse JSON response: {}", parseEx.getMessage());
@@ -746,6 +749,138 @@ public class StudyService {
             log.error("❌ Error calling Groq API: {}", e.getMessage(), e);
             return fallback;
         }
+    }
+    
+    /**
+     * Clean up JSON response by removing markdown code blocks and extra whitespace.
+     */
+    private String cleanJsonResponse(String jsonResponse) {
+        jsonResponse = jsonResponse.trim();
+        
+        // Remove markdown code fences
+        if (jsonResponse.startsWith("```json")) {
+            jsonResponse = jsonResponse.substring(7);
+        }
+        if (jsonResponse.startsWith("```")) {
+            jsonResponse = jsonResponse.substring(3);
+        }
+        if (jsonResponse.endsWith("```")) {
+            jsonResponse = jsonResponse.substring(0, jsonResponse.length() - 3);
+        }
+        
+        return jsonResponse.trim();
+    }
+    
+    /**
+     * Post-process the parsed result to ensure proper formatting.
+     * Ensures strings are properly formatted and arrays are correctly typed.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> postProcessResult(Map<String, Object> parsed, Map<String, Object> fallback) {
+        Map<String, Object> result = new HashMap<>(parsed);
+        
+        // Handle summary results
+        if (result.containsKey("summary")) {
+            Object summary = result.get("summary");
+            if (summary instanceof List) {
+                // Convert list to string if LLM returned an array
+                List<?> summaryList = (List<?>) summary;
+                result.put("summary", String.join("\n\n", summaryList.stream()
+                    .map(Object::toString)
+                    .toList()));
+                log.info("📝 Converted summary from array to string");
+            } else if (!(summary instanceof String)) {
+                result.put("summary", summary.toString());
+            }
+            
+            // Ensure keyPoints is a list of strings
+            Object keyPoints = result.get("keyPoints");
+            if (keyPoints instanceof List) {
+                List<String> stringKeyPoints = ((List<?>) keyPoints).stream()
+                    .map(Object::toString)
+                    .toList();
+                result.put("keyPoints", stringKeyPoints);
+            }
+            
+            // Ensure wordCount is a number
+            if (!result.containsKey("wordCount")) {
+                String summaryText = result.get("summary").toString();
+                result.put("wordCount", summaryText.split("\\s+").length);
+            }
+            
+            log.info("✅ Summary validation passed");
+        }
+        
+        // Handle flashcards results
+        if (result.containsKey("cards")) {
+            Object cards = result.get("cards");
+            if (cards instanceof List) {
+                List<?> cardsList = (List<?>) cards;
+                if (!cardsList.isEmpty()) {
+                    log.info("✅ Flashcards validation passed ({} cards)", cardsList.size());
+                    if (!result.containsKey("totalCards")) {
+                        result.put("totalCards", cardsList.size());
+                    }
+                }
+            }
+        }
+        
+        // Handle questions results
+        if (result.containsKey("questions")) {
+            Object questions = result.get("questions");
+            if (questions instanceof List) {
+                List<?> questionsList = (List<?>) questions;
+                if (!questionsList.isEmpty()) {
+                    log.info("✅ Questions validation passed ({} questions)", questionsList.size());
+                    if (!result.containsKey("totalQuestions")) {
+                        result.put("totalQuestions", questionsList.size());
+                    }
+                }
+            }
+        }
+        
+        // Handle essay prompts results
+        if (result.containsKey("prompts")) {
+            Object prompts = result.get("prompts");
+            if (prompts instanceof List) {
+                List<?> promptsList = (List<?>) prompts;
+                if (!promptsList.isEmpty()) {
+                    log.info("✅ Essay prompts validation passed ({} prompts)", promptsList.size());
+                    if (!result.containsKey("totalPrompts")) {
+                        result.put("totalPrompts", promptsList.size());
+                    }
+                }
+            }
+        }
+        
+        // Handle explanations results
+        if (result.containsKey("simplifiedText")) {
+            Object simplifiedText = result.get("simplifiedText");
+            if (simplifiedText instanceof List) {
+                List<?> textList = (List<?>) simplifiedText;
+                result.put("simplifiedText", String.join("\n\n", textList.stream()
+                    .map(Object::toString)
+                    .toList()));
+                log.info("📝 Converted simplifiedText from array to string");
+            }
+            log.info("✅ Explanations validation passed");
+        }
+        
+        // Handle diagram results
+        if (result.containsKey("mermaidCode")) {
+            log.info("✅ Diagram validation passed");
+        }
+        
+        // Handle study plan results
+        if (result.containsKey("sessions")) {
+            Object sessions = result.get("sessions");
+            if (sessions instanceof List) {
+                List<?> sessionsList = (List<?>) sessions;
+                log.info("✅ Study plan validation passed ({} sessions)", sessionsList.size());
+            }
+        }
+        
+        return result;
     }
     
     // Fallback response generators

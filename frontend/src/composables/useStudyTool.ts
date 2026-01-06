@@ -85,6 +85,13 @@ export function useStudyTool<T extends GenerationResult>(toolType: ToolType) {
         inputContent = notesContent.value
       }
       
+      // Truncate content if too long (backend limit is around 12,000 chars for prompt)
+      const MAX_CONTENT_LENGTH = 8000 // Leave room for prompt overhead
+      if (inputContent.length > MAX_CONTENT_LENGTH) {
+        console.warn(`Content too long (${inputContent.length} chars), truncating to ${MAX_CONTENT_LENGTH}`)
+        inputContent = inputContent.substring(0, MAX_CONTENT_LENGTH) + '\n\n[Content truncated for processing...]'
+      }
+      
       if (!inputContent?.trim()) {
         error.value = 'Please upload some documents first, or paste content to generate from'
         return null

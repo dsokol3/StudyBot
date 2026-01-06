@@ -43,57 +43,44 @@ public class PostgresInitializer {
         String username = properties.getUsername();
         String password = properties.getPassword();
         
-        if (url == null || url.isEmpty()) {
-            log.warn("No datasource URL configured, skipping pgvector initialization");
+        if (url == null || username == null) {
+            log.warn("Database URL or username not configured, skipping pgvector initialization");
             System.setProperty("pgvector.available", "false");
-            return "skipped";
+            pgvectorAvailable = false;
+            log.info("pgvector available: false");
+            log.info("=== End pgvector Initialization ===");
+            return "unavailable";
         }
         
-        log.info("Connecting to database to create pgvector extension...");
-        log.info("JDBC URL: {}", maskUrl(url));
-        log.info("Username: {}", username);
-        
-        try (Connection conn = DriverManager.getConnection(url, username, password)) {
-            log.info("Direct JDBC connection successful!");
-            log.info("Database: {} {}", 
-                    conn.getMetaData().getDatabaseProductName(),
-                    conn.getMetaData().getDatabaseProductVersion());
+        try (Connection conn = DriverManager.getConnection(url, username, password);
+             Statement stmt = conn.createStatement()) {
             
-            // Check if pgvector extension already exists
-            boolean extensionExists = false;
-            try (Statement checkStmt = conn.createStatement();
-                 ResultSet rs = checkStmt.executeQuery(
-                     "SELECT 1 FROM pg_extension WHERE extname = 'vector'")) {
-                extensionExists = rs.next();
-            }
+            log.info("Connected to database: {}", maskUrl(url));
             
-            if (extensionExists) {
-                log.info("pgvector extension already exists!");
+            // Check if pgvector extension exists
+            ResultSet rs = stmt.executeQuery(
+                "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')");
+            
+            if (rs.next() && rs.getBoolean(1)) {
+                log.info("pgvector extension already exists");
                 pgvectorAvailable = true;
-                System.setProperty("pgvector.available", "true");
             } else {
-                // Try to create pgvector extension
-                try (Statement stmt = conn.createStatement()) {
-                    stmt.execute("CREATE EXTENSION vector");
-                    log.info("SUCCESS: pgvector extension created!");
-                    pgvectorAvailable = true;
-                    System.setProperty("pgvector.available", "true");
-                } catch (Exception createEx) {
-                    log.warn("Could not create pgvector extension: {}", createEx.getMessage());
-                    log.warn("This is normal on Render free tier PostgreSQL");
-                    pgvectorAvailable = false;
-                    System.setProperty("pgvector.available", "false");
-                }
+                log.info("Creating pgvector extension...");
+                stmt.execute("CREATE EXTENSION IF NOT EXISTS vector");
+                log.info("pgvector extension created successfully");
+                pgvectorAvailable = true;
             }
+            
+            System.setProperty("pgvector.available", String.valueOf(pgvectorAvailable));
+            log.info("pgvector available: {}", pgvectorAvailable);
             
         } catch (Exception e) {
-            log.error("FAILED to connect to database for pgvector initialization: {}", e.getMessage());
-            log.error("Vector similarity search will NOT work on this database.");
+            log.warn("Failed to initialize pgvector extension: {}", e.getMessage());
+            log.warn("Embeddings will use alternative storage (JSON)");
             pgvectorAvailable = false;
             System.setProperty("pgvector.available", "false");
         }
         
-        log.info("pgvector available: {}", pgvectorAvailable);
         log.info("=== End pgvector Initialization ===");
         return pgvectorAvailable ? "available" : "unavailable";
     }

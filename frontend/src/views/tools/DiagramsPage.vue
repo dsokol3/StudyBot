@@ -28,6 +28,8 @@ const zoom = ref(1)
 const isFullscreen = ref(false)
 const selectedDiagramType = ref<DiagramType>('concept-map')
 const diagramCache = ref<Map<DiagramType, DiagramsResult>>(new Map())
+const renderError = ref<string | null>(null)
+const renderCounter = ref(0) // Used to generate unique IDs for mermaid.render
 
 // Diagram type options
 const diagramTypes = [
@@ -109,17 +111,31 @@ watch(selectedDiagramType, (newType) => {
 const renderDiagram = async () => {
   if (!result.value?.mermaidCode || !diagramContainer.value) return
   
+  renderError.value = null
+  
   try {
-    const { svg } = await mermaid.render('diagram-svg', result.value.mermaidCode)
+    // Generate a unique ID for each render (Mermaid v11+ requires unique IDs)
+    renderCounter.value++
+    const uniqueId = `diagram-svg-${renderCounter.value}-${Date.now()}`
+    
+    const { svg } = await mermaid.render(uniqueId, result.value.mermaidCode)
     diagramContainer.value.innerHTML = svg
     
     // Also render in fullscreen container if open
     if (fullscreenContainer.value) {
-      const { svg: fullSvg } = await mermaid.render('diagram-svg-full', result.value.mermaidCode)
+      const fullscreenId = `diagram-svg-full-${renderCounter.value}-${Date.now()}`
+      const { svg: fullSvg } = await mermaid.render(fullscreenId, result.value.mermaidCode)
       fullscreenContainer.value.innerHTML = fullSvg
     }
   } catch (err) {
     console.error('Mermaid render error:', err)
+    const errorMessage = err instanceof Error ? err.message : String(err)
+    renderError.value = `Failed to render diagram: ${errorMessage}`
+    
+    // Show the raw mermaid code as fallback
+    if (diagramContainer.value && result.value?.mermaidCode) {
+      diagramContainer.value.innerHTML = `<pre class="text-sm text-muted-foreground whitespace-pre-wrap p-4 bg-muted/50 rounded-lg">${result.value.mermaidCode}</pre>`
+    }
   }
 }
 
@@ -394,6 +410,11 @@ const openFullscreen = async () => {
             </div>
           </CardHeader>
           <CardContent>
+            <!-- Render Error Alert -->
+            <Alert v-if="renderError" variant="destructive" class="mb-4">
+              <AlertDescription>{{ renderError }}</AlertDescription>
+            </Alert>
+            
             <div class="overflow-auto border rounded-xl bg-white dark:bg-zinc-900 p-6 max-h-[600px]">
               <div 
                 ref="diagramContainer"

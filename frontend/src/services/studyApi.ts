@@ -21,7 +21,7 @@ const api = axios.create({
 
 // Rate limiting helper
 let lastRequestTime = 0
-const MIN_REQUEST_INTERVAL = 1000 // 1 second between requests
+const MIN_REQUEST_INTERVAL = 2000 // 2 seconds between requests to be safe
 
 async function throttledRequest<T>(requestFn: () => Promise<T>): Promise<T> {
   const now = Date.now()
@@ -230,8 +230,13 @@ export const studyApi = {
 
 // Error interceptor
 api.interceptors.response.use(
-  response => response,
+  response => {
+    // Log successful responses for debugging
+    console.log('API Response:', response.config.url, response.data)
+    return response
+  },
   error => {
+    console.error('API Error:', error.response?.status, error.response?.data, error.message)
     if (error.response?.status === 429) {
       // Rate limited
       console.warn('Rate limited. Please wait before making another request.')

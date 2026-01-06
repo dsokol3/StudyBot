@@ -40,6 +40,14 @@ public class DocumentController {
         log.info("Uploading document: {} for conversation: {}", 
                  file.getOriginalFilename(), conversationId);
         
+        // Validate conversationId
+        if (conversationId == null || conversationId.trim().isEmpty()) {
+            log.error("Upload failed: conversationId is required");
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Conversation ID is required"
+            ));
+        }
+        
         try {
             Document document = documentService.uploadDocument(file, conversationId);
             return ResponseEntity.ok(toDocumentDto(document));
@@ -47,6 +55,11 @@ public class DocumentController {
             log.error("Upload failed: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage()
+            ));
+        } catch (Exception e) {
+            log.error("Unexpected error during upload: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "error", "Internal server error"
             ));
         }
     }
@@ -104,11 +117,12 @@ public class DocumentController {
     /**
      * Get all document contents for a conversation (for study tools).
      */
-    @GetMapping("/conversation/{conversationId}/content")
-    public ResponseEntity<?> getAllDocumentContents(@PathVariable String conversationId) {
-        String content = documentService.getAllDocumentContents(conversationId);
-        return ResponseEntity.ok(Map.of("content", content));
-    }
+    // @GetMapping("/conversation/{conversationId}/content")
+    // public ResponseEntity<?> getAllDocumentContents(@PathVariable String conversationId) {
+    //     // String content = documentService.getAllDocumentContents(conversationId);
+    //     // return ResponseEntity.ok(Map.of("content", content));
+    //     return ResponseEntity.ok("test response");
+    // }
 
     /**
      * Delete a document.
