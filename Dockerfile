@@ -30,6 +30,9 @@ WORKDIR /app
 # Copy runnable jar from build stage
 COPY --from=backend-build /workspace/target/*.jar ./app.jar
 
+# Create uploads directory with proper permissions
+RUN mkdir -p /app/uploads && chmod 777 /app/uploads
+
 # Expose application port
 EXPOSE 8080
 

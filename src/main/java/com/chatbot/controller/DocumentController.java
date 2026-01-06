@@ -40,11 +40,23 @@ public class DocumentController {
         log.info("Uploading document: {} for conversation: {}", 
                  file.getOriginalFilename(), conversationId);
         
+        // Log request details for debugging
+        log.debug("File size: {}, Content-Type: {}, Conversation ID: '{}'", 
+                 file.getSize(), file.getContentType(), conversationId);
+        
         // Validate conversationId
         if (conversationId == null || conversationId.trim().isEmpty()) {
             log.error("Upload failed: conversationId is required");
             return ResponseEntity.badRequest().body(Map.of(
                 "error", "Conversation ID is required"
+            ));
+        }
+        
+        // Validate file
+        if (file == null || file.isEmpty()) {
+            log.error("Upload failed: no file provided");
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "No file provided"
             ));
         }
         
@@ -59,7 +71,7 @@ public class DocumentController {
         } catch (Exception e) {
             log.error("Unexpected error during upload: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "error", "Internal server error"
+                "error", "Internal server error: " + e.getMessage()
             ));
         }
     }
